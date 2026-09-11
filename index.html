@@ -339,7 +339,7 @@
   .fade-up{opacity:0;transform:translateY(20px);transition:.6s ease;}
   .fade-up.visible{opacity:1;transform:translateY(0);}
 
-  /* ===== ASSISTENTE IA - MIA ===== */
+  /* ===== ASSISTENTE IA - ALE ===== */
   .ai-chat-widget{
     position:fixed;bottom:22px;right:22px;z-index:1200;
     display:flex;flex-direction:column;align-items:flex-end;gap:12px;
@@ -707,13 +707,13 @@
   <p>© 2026 Meu Sistema Customizado. Todos os direitos reservados.</p>
 </footer>
 
-<!-- ===== ASSISTENTE IA - MIA ===== -->
+<!-- ===== ASSISTENTE IA - ALE ===== -->
 <div class="ai-chat-widget">
   <div class="ai-bubble-greeting" id="aiGreeting">
     <button class="ai-greeting-close" id="closeGreeting" aria-label="Fechar mensagem">×</button>
-    <p>Oi! Eu sou a <strong>Mia</strong> 🙂<br>Posso te ajudar a organizar sua empresa?</p>
+    <p>Oi! Eu sou a <strong>Ale</strong> 🙂<br>Posso te ajudar a organizar sua empresa?</p>
   </div>
-  <button class="ai-chat-button" id="aiChatButton" aria-label="Falar com a Mia, assistente virtual">
+  <button class="ai-chat-button" id="aiChatButton" aria-label="Falar com a Ale, assistente virtual">
     <span class="ai-face">🙂</span>
   </button>
 </div>
@@ -722,12 +722,12 @@
   <div class="ai-chat-header">
     <span class="ai-face-small">🙂</span>
     <div>
-      <strong>Mia</strong><br><small>Assistente do Meu Sistema Customizado</small>
+      <strong>Ale</strong><br><small>Assistente do Meu Sistema Customizado</small>
     </div>
     <button id="closeChatPanel" aria-label="Fechar chat">×</button>
   </div>
   <div class="ai-chat-body">
-    <div class="ai-msg">Oi! Eu sou a Mia, assistente virtual do Meu Sistema Customizado 👋<br><br>Me conta rapidinho: você quer organizar vendas, automatizar atendimento ou criar um chatbot?</div>
+    <div class="ai-msg">Oi! Eu sou a Ale, assistente virtual do Meu Sistema Customizado 👋<br><br>Me conta rapidinho: você quer organizar vendas, automatizar atendimento ou criar um chatbot?</div>
   </div>
   <div class="ai-chat-quick">
     <a href="https://wa.me/5547999186704?text=Quero%20organizar%20minhas%20vendas" class="ai-quick-btn">Organizar vendas</a>
@@ -779,7 +779,7 @@
   }, {threshold:0.15});
   document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
 
-  // ===== ASSISTENTE IA - MIA =====
+  // ===== ASSISTENTE IA - ALE =====
   const aiChatButton = document.getElementById('aiChatButton');
   const aiChatPanel = document.getElementById('aiChatPanel');
   const closeChatPanel = document.getElementById('closeChatPanel');
@@ -821,7 +821,7 @@
     el.style.color = erro ? '#B91C1C' : '#15803D';
   }
 
-  // E-mail pela Mia
+  // E-mail pela Ale
   const aiEmailForm = document.getElementById('aiEmailForm');
   const aiEmailStatus = document.getElementById('aiEmailStatus');
   aiEmailForm.addEventListener('submit', async (e) => {
@@ -830,7 +830,7 @@
     const btn = aiEmailForm.querySelector('button');
     btn.disabled = true;
     try{
-      await enviarContato({_subject:'Novo contato pela Mia', email, origem:'Mia (assistente do site)'});
+      await enviarContato({_subject:'Novo contato pela Ale', email, origem:'Ale (assistente do site)'});
       mostrarStatus(aiEmailStatus, 'Pronto! Vamos te responder em ' + email + ' em breve.');
       aiEmailForm.reset();
     }catch(err){
