@@ -392,7 +392,8 @@
     overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;z-index:1300;border:1px solid #EEF1F5;
     max-height:calc(100vh - 120px);max-height:calc(100dvh - 120px);
   }
-  .ai-chat-panel.open{display:block;animation:fadeInUp .3s ease;}
+  .ai-chat-panel.open{display:flex;flex-direction:column;animation:fadeInUp .3s ease;}
+  .ai-chat-panel{height:min(560px, calc(100vh - 120px));height:min(560px, calc(100dvh - 120px));width:340px;}
   .ai-chat-header{
     background:linear-gradient(135deg,var(--laranja),var(--amarelo));color:#fff;
     padding:14px 52px 14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:2;
@@ -405,8 +406,23 @@
     font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
   }
   #closeChatPanel:hover{background:rgba(255,255,255,.4);}
-  .ai-chat-body{padding:16px;font-size:13.5px;color:var(--grafite);background:var(--cinza-claro);}
-  .ai-msg{background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 2px 6px rgba(0,0,0,.04);}
+  .ai-chat-body{padding:16px;font-size:13.5px;color:var(--grafite);background:var(--cinza-claro);flex:1 1 auto;min-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+  .ai-msg{background:#fff;border-radius:12px;padding:10px 13px;box-shadow:0 2px 6px rgba(0,0,0,.04);max-width:88%;white-space:pre-line;word-wrap:break-word;align-self:flex-start;}
+  .ai-msg.ai-user{background:var(--laranja);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
+  .ai-msg.ai-bot{border-bottom-left-radius:4px;}
+  .ai-msg.ai-typing{color:#9CA3AF;font-style:italic;}
+  .ai-handoff{display:flex;gap:8px;padding:10px 16px 0;background:#fff;flex-wrap:wrap;}
+  .ai-handoff[hidden]{display:none;}
+  .ai-handoff-btn{flex:1 1 130px;text-align:center;padding:10px 12px;border-radius:999px;font-size:13px;font-weight:700;border:1px solid #E5E7EB;background:var(--cinza-claro);color:var(--grafite);cursor:pointer;font-family:inherit;}
+  .ai-handoff-btn.ai-whats{background:#16A34A;border-color:#16A34A;color:#fff;}
+  .ai-handoff-btn:hover{filter:brightness(.95);}
+  .ai-email-form[hidden]{display:none;}
+  .ai-composer{display:flex;gap:8px;padding:12px 16px 6px;background:#fff;border-top:1px solid #F1F1F1;}
+  .ai-composer input{flex:1;min-width:0;padding:11px 14px;border:1px solid #E5E7EB;border-radius:999px;font-size:14px;font-family:inherit;}
+  .ai-composer input:focus{outline:2px solid var(--laranja);outline-offset:1px;border-color:var(--laranja);}
+  .ai-composer button{width:42px;height:42px;flex-shrink:0;border-radius:50%;border:none;background:var(--laranja);color:#fff;font-size:16px;cursor:pointer;}
+  .ai-composer button:disabled{opacity:.5;cursor:wait;}
+  .ai-human{display:block;text-align:center;font-size:12px;color:#6B7280;padding:4px 16px 12px;background:#fff;text-decoration:underline;}
   .ai-chat-quick{display:flex;flex-direction:column;gap:8px;padding:14px 16px;background:#fff;}
   .ai-quick-btn{
     background:var(--cinza-claro);border:1px solid #E5E7EB;border-radius:999px;
@@ -745,22 +761,26 @@
     </div>
     <button id="closeChatPanel" aria-label="Fechar chat">×</button>
   </div>
-  <div class="ai-chat-body">
-    <div class="ai-msg">Oi! Eu sou a Ale, assistente virtual do Meu Sistema Customizado 👋<br><br>Me conta rapidinho: você quer organizar vendas, automatizar atendimento ou criar um chatbot?</div>
+  <div class="ai-chat-body" id="aiLog" aria-live="polite">
+    <div class="ai-msg ai-bot">Oi! Eu sou a Ale, assistente virtual do Meu Sistema Customizado 👋 Me conta rapidinho: qual é o seu negócio e o que você gostaria de melhorar hoje?</div>
   </div>
-  <div class="ai-chat-quick">
-    <a href="https://wa.me/5547999186704?text=Quero%20organizar%20minhas%20vendas" class="ai-quick-btn">Organizar vendas</a>
-    <a href="https://wa.me/5547999186704?text=Quero%20um%20chatbot%20com%20IA" class="ai-quick-btn">Quero um chatbot</a>
-    <a href="https://wa.me/5547999186704?text=Quero%20falar%20com%20um%20especialista" class="ai-quick-btn">Falar com humano</a>
+  <div class="ai-handoff" id="aiHandoff" hidden>
+    <a id="aiWhats" class="ai-handoff-btn ai-whats" href="https://wa.me/5547999186704" target="_blank" rel="noopener">💬 WhatsApp</a>
+    <button type="button" id="aiShowEmail" class="ai-handoff-btn">✉️ E-mail</button>
   </div>
-  <form class="ai-email-form" id="aiEmailForm">
-    <label for="aiEmail">Prefere que a gente responda por e-mail?</label>
+  <form class="ai-email-form" id="aiEmailForm" hidden>
+    <label for="aiEmail">Deixe seu e-mail que a equipe te responde:</label>
     <div class="ai-email-row">
       <input type="email" id="aiEmail" name="email" required placeholder="seu@email.com" autocomplete="email">
       <button type="submit" aria-label="Enviar e-mail">Enviar</button>
     </div>
     <p class="ai-email-status" id="aiEmailStatus" role="status" hidden></p>
   </form>
+  <form class="ai-composer" id="aiComposer">
+    <input type="text" id="aiInput" maxlength="600" placeholder="Digite sua mensagem..." autocomplete="off" aria-label="Mensagem para a Ale">
+    <button type="submit" aria-label="Enviar mensagem">➤</button>
+  </form>
+  <a class="ai-human" href="https://wa.me/5547999186704?text=Quero%20falar%20com%20um%20especialista" target="_blank" rel="noopener">Falar direto com uma pessoa no WhatsApp</a>
 </div>
 
 <script>
@@ -812,6 +832,7 @@
     aiChatButton.setAttribute('aria-expanded', open ? 'true' : 'false');
     aiChatButton.setAttribute('aria-label', open ? 'Fechar chat da Ale' : 'Falar com a Ale, assistente virtual');
     aiFace.textContent = open ? '✕' : '🙂';
+    if(open && window.innerWidth > 600) setTimeout(() => { const i = document.getElementById('aiInput'); if(i) i.focus(); }, 50);
     aiGreeting.style.display = 'none';
   }
   aiChatButton.addEventListener('click', (e) => {
@@ -834,6 +855,75 @@
   setTimeout(() => {
     if(aiGreeting) aiGreeting.style.display = 'none';
   }, 9000);
+
+  // ===== Chat da Ale =====
+  const aiLog = document.getElementById('aiLog');
+  const aiComposer = document.getElementById('aiComposer');
+  const aiInput = document.getElementById('aiInput');
+  const aiHandoff = document.getElementById('aiHandoff');
+  const aiWhats = document.getElementById('aiWhats');
+  const WHATS = 'https://wa.me/5547999186704';
+  const aiHistorico = [{role:'assistant', content: aiLog.textContent.trim()}];
+  let aiTurnos = 0, aiOcupada = false;
+
+  function aiAdd(role, text, extra){
+    const d = document.createElement('div');
+    d.className = 'ai-msg ' + (role === 'user' ? 'ai-user' : 'ai-bot') + (extra ? ' ' + extra : '');
+    d.textContent = text;
+    aiLog.appendChild(d);
+    aiLog.scrollTop = aiLog.scrollHeight;
+    return d;
+  }
+  function aiConversaTexto(){
+    return aiHistorico.map(m => (m.role === 'user' ? 'Cliente: ' : 'Ale: ') + m.content).join('\n');
+  }
+  function aiMostrarContato(){
+    const resumo = aiHistorico.filter(m => m.role === 'user').map(m => m.content).join(' | ').slice(0, 500);
+    aiWhats.href = WHATS + '?text=' + encodeURIComponent('Olá! Conversei com a Ale no site e quero continuar o atendimento.' + (resumo ? ' Resumo: ' + resumo : ''));
+    aiHandoff.hidden = false;
+  }
+  document.getElementById('aiShowEmail').addEventListener('click', () => {
+    aiEmailForm.hidden = false;
+    document.getElementById('aiEmail').focus();
+  });
+  function aiRespostaLocal(t){
+    t = t.toLowerCase();
+    if(/(pre[cç]o|valor|quanto|custa|mensal|parcel|investimento)/.test(t)) return {reply:'Nossos serviços começam em (10x sem juros):\n• Chatbot IA Essencial: a partir de R$ 208/mês\n• Organização Comercial: a partir de R$ 390/mês\n• CRM e Automação de SDR: a partir de R$ 650/mês\n• Automação sob medida: a partir de R$ 856,70/mês\nQual deles combina mais com o que você precisa?', handoff:false};
+    if(/(humano|pessoa|atendente|especialista|or[cç]amento|proposta|reuni)/.test(t)) return {reply:'Claro! Nossa equipe pode te atender agora. É só continuar pelo WhatsApp ou deixar seu e-mail aqui embaixo 👇', handoff:true};
+    if(/(chatbot|bot|whats|atendimento|responder)/.test(t)) return {reply:'Um chatbot com IA atende seus clientes 24h no site ou no WhatsApp, responde dúvidas, capta contatos e encaminha para sua equipe. Qual é o segmento da sua empresa?', handoff:false};
+    if(/(crm|venda|funil|cliente|lead|follow|proposta)/.test(t)) return {reply:'Com um CRM sob medida você organiza clientes, propostas, tarefas e follow-ups em um só lugar, sem perder vendas. Quantas pessoas da sua equipe atendem clientes hoje?', handoff:false};
+    if(/(dashboard|relat|kpi|gr[aá]fico|indicador|meta|automa)/.test(t)) return {reply:'Montamos automações e dashboards com gráficos e KPIs para você acompanhar vendas e resultados sem planilhas manuais. O que você mais gostaria de acompanhar?', handoff:false};
+    return {reply:'Entendi! Para te indicar a melhor solução, nossa equipe pode conversar com você rapidinho. Você pode continuar pelo WhatsApp ou deixar seu e-mail 👇', handoff:true};
+  }
+  aiComposer.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const texto = aiInput.value.trim();
+    if(!texto || aiOcupada) return;
+    aiOcupada = true;
+    const btn = aiComposer.querySelector('button');
+    btn.disabled = true;
+    aiAdd('user', texto);
+    aiHistorico.push({role:'user', content: texto});
+    aiTurnos++;
+    aiInput.value = '';
+    const digitando = aiAdd('assistant', 'Ale está digitando...', 'ai-typing');
+    let resposta;
+    try{
+      const r = await fetch('/api/ale', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({messages: aiHistorico.slice(-16)})});
+      if(!r.ok) throw new Error('status ' + r.status);
+      resposta = await r.json();
+      if(!resposta.reply) throw new Error('vazio');
+    }catch(err){
+      resposta = aiRespostaLocal(texto);
+    }
+    digitando.remove();
+    aiAdd('assistant', resposta.reply);
+    aiHistorico.push({role:'assistant', content: resposta.reply});
+    if(resposta.handoff || aiTurnos >= 3) aiMostrarContato();
+    aiOcupada = false;
+    btn.disabled = false;
+    aiInput.focus();
+  });
 
   // ===== Envio de contatos por e-mail (FormSubmit) =====
   const DESTINO = 'contato@meusistemacustomizado.com';
@@ -861,7 +951,7 @@
     const btn = aiEmailForm.querySelector('button');
     btn.disabled = true;
     try{
-      await enviarContato({_subject:'Novo contato pela Ale', email, origem:'Ale (assistente do site)'});
+      await enviarContato({_subject:'Novo contato pela Ale', email, origem:'Ale (assistente do site)', conversa: aiConversaTexto()});
       mostrarStatus(aiEmailStatus, 'Pronto! Vamos te responder em ' + email + ' em breve.');
       aiEmailForm.reset();
     }catch(err){
