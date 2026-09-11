@@ -233,7 +233,9 @@
 
   /* SERVIÇOS / VALORES */
   .plans{background:var(--cinza-claro);}
-  .plans-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;}
+  .plans-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;}
+  @media(max-width:1100px){.plans-grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:600px){.plans-grid{grid-template-columns:1fr;}}
   .plan-card{
     background:#fff;border-radius:var(--radius);padding:30px;border:1px solid #EEF1F5;
     display:flex;flex-direction:column;box-shadow:0 4px 14px rgba(0,0,0,.03);
@@ -248,7 +250,8 @@
 
   .price-block{margin-bottom:20px;}
   .price-monthly{
-    font-size:34px;font-weight:900;color:var(--laranja);line-height:1;
+    white-space:nowrap;
+    font-size:clamp(28px,2.6vw,34px);font-weight:900;color:var(--laranja);line-height:1;
   }
   .price-monthly span{font-size:16px;font-weight:700;color:#6B7280;margin-left:4px;}
   .price-total{
@@ -550,7 +553,7 @@
           <div class="price-monthly">R$ 856,70<span>/mês</span></div>
           <div class="price-total">10x sem juros · Total R$ 8.567</div>
         </div>
-        <p class="plan-desc">Uma automação simples: confirmação, lembrete, distribuição de lead, follow-up de orçamento ou alerta interno.</p>
+        <p class="plan-desc">Automações e painéis sob medida: confirmações, lembretes, distribuição de leads, follow-up de orçamento, alertas internos e dashboards com gráficos e KPIs para acompanhar vendas e resultados.</p>
         <a href="https://wa.me/5547999186704" class="btn btn-dark">Quero esse</a>
       </div>
 
