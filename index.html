@@ -20,17 +20,18 @@
 <meta property="og:title" content="CRM, Chatbot e Automação com IA para Pequenas Empresas">
 <meta property="og:description" content="Sistemas, CRM, chatbots e automações sob medida, sem mensalidade obrigatória. Comece pelo essencial e cresça no seu ritmo.">
 <meta property="og:url" content="https://www.meusistemacustomizado.com/">
-<meta property="og:image" content="https://www.meusistemacustomizado.com/assets/og-meusistemacustomizado.jpg">
+<meta property="og:image" content="https://www.meusistemacustomizado.com/og-meusistemacustomizado.jpg">
 <meta property="og:locale" content="pt_BR">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="CRM, Chatbot e Automação com IA para Pequenas Empresas">
 <meta name="twitter:description" content="Tecnologia sob medida para pequenas empresas venderem mais, sem mensalidade obrigatória.">
-<meta name="twitter:image" content="https://www.meusistemacustomizado.com/assets/og-meusistemacustomizado.jpg">
+<meta name="twitter:image" content="https://www.meusistemacustomizado.com/og-meusistemacustomizado.jpg">
 
 <!-- Favicon -->
-<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="48x48" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
 <!-- Performance -->
@@ -44,7 +45,7 @@
   "@type": "Organization",
   "name": "Meu Sistema Customizado",
   "url": "https://www.meusistemacustomizado.com/",
-  "logo": "https://www.meusistemacustomizado.com/assets/logo.png",
+  "logo": "https://www.meusistemacustomizado.com/logo.png",
   "description": "CRM, automação comercial, chatbots com IA e sistemas sob medida para pequenas empresas.",
   "sameAs": [
     "https://www.instagram.com/meusistemacustomizado",
@@ -67,7 +68,7 @@
   "@context": "https://schema.org",
   "@type": "ProfessionalService",
   "name": "Meu Sistema Customizado",
-  "image": "https://www.meusistemacustomizado.com/assets/og-meusistemacustomizado.jpg",
+  "image": "https://www.meusistemacustomizado.com/og-meusistemacustomizado.jpg",
   "description": "Desenvolvimento de CRM personalizado, chatbots com IA para WhatsApp e automação comercial para pequenas empresas em todo o Brasil.",
   "areaServed": "BR",
   "priceRange": "R$128 - R$856",
@@ -173,6 +174,10 @@
   nav ul{list-style:none;display:flex;gap:28px;}
   nav a{font-weight:600;font-size:15px;color:var(--grafite);}
   nav a:hover{color:var(--laranja);}
+  .logo-icon{flex-shrink:0;display:block;}
+  .logo-text{display:flex;flex-direction:column;line-height:1.05;text-align:left;}
+  .logo-text span{font-size:13px;font-weight:600;opacity:.8;}
+  .logo-text b{font-size:20px;font-weight:900;letter-spacing:-.3px;color:var(--laranja);}
   .menu-toggle{display:none;background:none;border:none;font-size:26px;cursor:pointer;}
   .header-cta{display:flex;align-items:center;gap:18px;}
 
@@ -408,10 +413,10 @@
 <!-- HEADER -->
 <header>
   <div class="nav-wrap">
-    <div class="logo">
-      <div class="logo-badge">MSC</div>
-      MEU SISTEMA CUSTOMIZADO
-    </div>
+    <a href="#inicio" class="logo" aria-label="Meu Sistema Customizado — início">
+      <svg class="logo-icon" viewBox="-2 -2 68 68" width="40" height="40" aria-hidden="true"><rect x="8" y="34" width="22" height="22" rx="5" fill="currentColor"/><rect x="34" y="34" width="22" height="22" rx="5" fill="#F97316"/><rect x="8" y="8" width="22" height="22" rx="5" fill="#F59E0B"/><rect x="36" y="4" width="20" height="20" rx="5" fill="none" stroke="#F97316" stroke-width="3" stroke-dasharray="4 3" transform="rotate(12 46 14)"/></svg>
+      <span class="logo-text"><span>Meu Sistema</span><b>Customizado</b></span>
+    </a>
     <nav id="mainNav" aria-label="Menu principal">
       <ul>
         <li><a href="#inicio">Início</a></li>
@@ -700,8 +705,8 @@
 <!-- FOOTER -->
 <footer>
   <div class="logo">
-    <div class="logo-badge" style="background:linear-gradient(135deg,#F97316,#F59E0B);">MSC</div>
-    MEU SISTEMA CUSTOMIZADO
+      <svg class="logo-icon" viewBox="-2 -2 68 68" width="44" height="44" aria-hidden="true"><rect x="8" y="34" width="22" height="22" rx="5" fill="currentColor"/><rect x="34" y="34" width="22" height="22" rx="5" fill="#F97316"/><rect x="8" y="8" width="22" height="22" rx="5" fill="#F59E0B"/><rect x="36" y="4" width="20" height="20" rx="5" fill="none" stroke="#F97316" stroke-width="3" stroke-dasharray="4 3" transform="rotate(12 46 14)"/></svg>
+      <span class="logo-text"><span>Meu Sistema</span><b>Customizado</b></span>
   </div>
   <address>
     <p>CRM, sistemas, automações, chatbots e IA sob medida para micro e pequenas empresas.</p>
