@@ -135,8 +135,15 @@ const ACOES = {
   async status_empresa({ empresa_id, status, motivo }) {
     if (!STATUS_EMPRESA.includes(status)) throw erro('entrada', 'Status inválido.', 400);
     const e = id(empresa_id, 'empresa_id');
+    const [atual] = await db(`empresas?id=eq.${enc(e)}&select=status`);
+    if (!atual) throw erro('entrada', 'Clínica não encontrada.', 404);
+    if (atual.status === 'opt_out') throw erro('status', 'Essa clínica pediu para sair (opt-out) e não pode voltar para a prospecção.', 400);
     await db(`empresas?id=eq.${enc(e)}`, { method: 'PATCH', prefer: 'return=minimal', body: { status, ...(motivo ? { motivo_perda: texto(motivo, 300) } : {}) } });
-    if (['reuniao', 'ganho', 'perdido', 'descartado', 'interessado'].includes(status)) {
+    if (status === 'em_cadencia') {
+      // Voltou para "Aguardando resposta" no quadro: retoma a cadência pausada.
+      await db(`inscricoes?empresa_id=eq.${enc(e)}&status=eq.pausada`, { method: 'PATCH', prefer: 'return=minimal', body: { status: 'ativa', motivo_parada: null, proxima_acao_em: new Date().toISOString() } });
+    } else {
+      // Qualquer outro status tira a clínica da cadência automática: pausa (pode voltar) ou interrompe (fechada).
       await db(`inscricoes?empresa_id=eq.${enc(e)}&status=eq.ativa`, { method: 'PATCH', prefer: 'return=minimal', body: { status: ['ganho', 'perdido', 'descartado'].includes(status) ? 'interrompida' : 'pausada', motivo_parada: `status: ${status}` } });
       await db(`mensagens?empresa_id=eq.${enc(e)}&direcao=eq.saida&status=in.(rascunho,aprovado)`, { method: 'PATCH', prefer: 'return=minimal', body: { status: 'descartado', erro: `Status mudou para ${status}.` } });
     }
