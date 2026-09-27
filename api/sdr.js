@@ -107,9 +107,9 @@ const ACOES = {
   },
 
   // Pula o passo atual sem enviar nada
-  async pular({ inscricao_id }) {
+  async pular({ inscricao_id, feito_por_fora }) {
     id(inscricao_id, 'inscricao_id');
-    await db(`mensagens?inscricao_id=eq.${enc(inscricao_id)}&direcao=eq.saida&status=in.(rascunho,aprovado,falhou)`, { method: 'PATCH', prefer: 'return=minimal', body: { status: 'descartado', erro: 'Passo pulado.' } });
+    await db(`mensagens?inscricao_id=eq.${enc(inscricao_id)}&direcao=eq.saida&status=in.(rascunho,aprovado,falhou)`, { method: 'PATCH', prefer: 'return=minimal', body: { status: 'descartado', erro: feito_por_fora ? 'Contato feito por fora (movido no quadro).' : 'Passo pulado.' } });
     const [i] = await rpc('avancar', { p_inscricao: inscricao_id }).then((r) => (Array.isArray(r) ? r : [r]));
     return { inscricao: i };
   },

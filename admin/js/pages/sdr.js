@@ -296,7 +296,11 @@ export async function render(view, params) {
         toast(`${nomeCurto(e.nome)} voltou para Contactar${i?.status === 'ativa' ? ' (cadência pausada)' : ''}.`);
       } else if (destino === 'aguardando') {
         if (e.status === 'em_cadencia' && i?.status === 'ativa') {
-          toast('Ela passa para "Aguardando resposta" assim que o primeiro toque for enviado (aba Hoje).', 'erro'); return;
+          // Toque 1 ainda na fila: o contato foi feito por fora, então dá o toque como feito e segue a cadência.
+          if (!(await confirmar({ titulo: 'Já fez o primeiro contato?', mensagem: `O toque 1 de ${nomeCurto(e.nome)} é dado como feito (o rascunho dele é descartado) e a cadência segue para o toque 2.`, confirmar: 'Sim, já contatei' }))) return;
+          await post({ acao: 'pular', inscricao_id: i.id, feito_por_fora: true });
+          toast(`${nomeCurto(e.nome)} em Aguardando resposta.`);
+          return carregar();
         }
         if (!(e.inscricoes || []).length) {
           if (!(await confirmar({ titulo: 'Inscrever na cadência?', mensagem: `${nomeCurto(e.nome)} entra na cadência de 14 dias a partir do próximo dia útil. ${e.email ? '' : 'Sem e-mail: os toques de e-mail viram tarefas de WhatsApp/Instagram. '}Nada sai sem a sua aprovação.`, confirmar: 'Inscrever' }))) return;
