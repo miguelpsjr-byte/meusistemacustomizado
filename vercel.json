@@ -2,6 +2,12 @@
   "functions": {
     "api/contrato-ia.js": {
       "maxDuration": 60
+    },
+    "api/sdr.js": {
+      "maxDuration": 60
+    },
+    "api/sdr-cron.js": {
+      "maxDuration": 60
     }
   },
   "headers": [
@@ -57,6 +63,12 @@
       "source": "/admin",
       "destination": "/admin/",
       "permanent": false
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/sdr-cron",
+      "schedule": "50 10 * * 1-5"
     }
   ]
 }
