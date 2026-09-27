@@ -19,6 +19,24 @@ const CLASSIFICACAO = {
   interessado: ['Interessada', 'ok'], duvida: ['Dúvida', 'alerta'], agora_nao: ['Agora não', 'neutro'], nao_quero: ['Sem interesse', 'erro'],
   resposta_automatica: ['Automática', 'apagado'], fora_do_escopo: ['Fora do assunto', 'apagado']
 };
+// Quadro (Kanban) das clínicas: as colunas vêm do status que o SDR já grava, então a automação e o arrasto andam juntos.
+const COLUNAS = [
+  { k: 'contactar', t: 'Contactar', cor: '#94A3B8', sub: 'Ainda sem o primeiro contato' },
+  { k: 'aguardando', t: 'Aguardando resposta', cor: '#F59E0B', sub: 'Abordadas, na cadência' },
+  { k: 'atendimento', t: 'Em atendimento', cor: '#F97316', sub: 'Responderam, em conversa' },
+  { k: 'fechado', t: 'Fechado', cor: '#16A34A', sub: 'Clientes e perdidas' }
+];
+const BLOQUEADOS = ['ganho', 'perdido', 'descartado', 'opt_out'];
+function colunaDe(e) {
+  const i = (e.inscricoes || []).find((x) => x.status === 'ativa') || (e.inscricoes || [])[0];
+  if (['novo', 'enriquecido'].includes(e.status)) return 'contactar';
+  if (e.status === 'em_cadencia') return i && i.status === 'ativa' && Number(i.passo_atual) <= 1 ? 'contactar' : 'aguardando';
+  if (['respondeu', 'interessado', 'reuniao'].includes(e.status)) return 'atendimento';
+  return 'fechado';
+}
+const lerVisao = () => { try { return localStorage.getItem('sdr-visao') === 'lista' ? 'lista' : 'quadro'; } catch { return 'quadro'; } };
+const gravarVisao = (v) => { try { localStorage.setItem('sdr-visao', v); } catch { /* sem armazenamento: fica só nesta sessão */ } };
+
 const FUNIL = [['em_cadencia', 'Em cadência'], ['respondeu', 'Responderam'], ['interessado', 'Interessadas'], ['reuniao', 'Reunião'], ['ganho', 'Clientes']];
 
 const badge = (map, k) => { const [t, tom] = map[k] || [k, 'neutro']; return html`<span class="badge badge-${tom}">${t}</span>`; };
@@ -32,6 +50,8 @@ export async function render(view, params) {
   let aba = ABAS.some(([k]) => k === params[0]) ? params[0] : 'hoje';
   let dados = null;
   let filtro = { texto: '', prioridade: '', status: '' };
+  let visao = lerVisao();
+  let mostrarDescartadas = false;
   const selecionadas = new Set();
 
   mount(view, html`
@@ -178,11 +198,18 @@ export async function render(view, params) {
       </section>
       <section class="painel">
         <div class="filtros">
+          <div class="segmentado" role="group" aria-label="Visualização">
+            <button data-visao="quadro" aria-pressed="${visao === 'quadro'}">${raw(icon('kanban', 14))} Quadro</button>
+            <button data-visao="lista" aria-pressed="${visao === 'lista'}">Lista</button>
+          </div>
           <input class="entrada" type="search" placeholder="Buscar clínica" value="${filtro.texto}" data-f="texto" aria-label="Buscar clínica">
           <select class="entrada" data-f="prioridade" aria-label="Prioridade"><option value="">Todas as prioridades</option>${['A', 'B', 'C'].map((p) => html`<option ${filtro.prioridade === p ? raw('selected') : ''}>${p}</option>`)}</select>
-          <select class="entrada" data-f="status" aria-label="Status"><option value="">Todos os status</option>${Object.entries(STATUS).map(([k, [t]]) => html`<option value="${k}" ${filtro.status === k ? raw('selected') : ''}>${t}</option>`)}</select>
+          ${visao === 'lista'
+            ? html`<select class="entrada" data-f="status" aria-label="Status"><option value="">Todos os status</option>${Object.entries(STATUS).map(([k, [t]]) => html`<option value="${k}" ${filtro.status === k ? raw('selected') : ''}>${t}</option>`)}</select>`
+            : html`<label class="check"><input type="checkbox" data-descartadas ${mostrarDescartadas ? raw('checked') : ''}>Mostrar descartadas e opt-out</label>`}
           <span style="flex:1"></span>
-          <button class="btn btn-primario" data-inscrever disabled>${raw(icon('plus', 16))}Inscrever na cadência</button>
+          ${visao === 'lista' ? html`<button class="btn btn-primario" data-inscrever disabled>${raw(icon('plus', 16))}Inscrever na cadência</button>`
+            : html`<span class="sub sdr-dica">Arraste os cards entre as colunas. Soltar em "Aguardando resposta" inscreve na cadência.</span>`}
         </div>
         <div data-tabela></div>
       </section>`);
@@ -191,6 +218,7 @@ export async function render(view, params) {
 
   function desenharTabela() {
     const box = $('[data-tabela]', conteudo); if (!box) return;
+    if (visao === 'quadro') return desenharQuadro(box);
     const t = filtro.texto.toLowerCase();
     const lista = dados.empresas.filter((e) => (!t || e.nome.toLowerCase().includes(t)) && (!filtro.prioridade || e.prioridade === filtro.prioridade) && (!filtro.status || e.status === filtro.status));
     const inscrivel = (e) => !['opt_out', 'descartado', 'ganho', 'perdido'].includes(e.status) && !(e.inscricoes || []).length;
@@ -213,6 +241,155 @@ export async function render(view, params) {
       : vazio({ titulo: 'Nenhuma clínica com esses filtros' }));
     atualizarBotaoInscrever();
   }
+  // ---------- Clínicas em quadro (Kanban) ----------
+  function desenharQuadro(box) {
+    const t = filtro.texto.toLowerCase();
+    const lista = dados.empresas.filter((e) => (!t || e.nome.toLowerCase().includes(t)) && (!filtro.prioridade || e.prioridade === filtro.prioridade)
+      && (mostrarDescartadas || !['descartado', 'opt_out'].includes(e.status)));
+    const proxima = (e) => { const i = (e.inscricoes || []).find((x) => x.status === 'ativa'); return i ? new Date(i.proxima_acao_em).getTime() : Infinity; };
+    mount(box, html`<div class="kanban kanban-sdr" aria-label="Quadro das clínicas">${COLUNAS.map((c) => {
+      let cards = lista.filter((e) => colunaDe(e) === c.k);
+      if (c.k === 'aguardando' || c.k === 'contactar') cards = [...cards].sort((a, b) => String(a.prioridade).localeCompare(String(b.prioridade)) || proxima(a) - proxima(b));
+      const ganhas = c.k === 'fechado' ? cards.filter((e) => e.status === 'ganho').length : 0;
+      return html`<section class="coluna" data-coluna="${c.k}" aria-label="${c.t}">
+        <header class="coluna-topo">
+          <div class="coluna-titulo"><span class="bloco" style="background:${c.cor}"></span>${c.t}<span class="qtd">${cards.length}</span></div>
+          <div class="coluna-total">${c.k === 'fechado' && cards.length ? `${plural(ganhas, 'cliente', 'clientes')} · ${plural(cards.length - ganhas, 'perdida', 'perdidas')}` : c.sub}</div>
+        </header>
+        <div class="coluna-cards">${cards.length ? cards.map(cartaoClinica) : html`<div class="coluna-vazia">Solte um card aqui</div>`}</div>
+      </section>`;
+    })}</div>`);
+  }
+
+  function cartaoClinica(e) {
+    const i = (e.inscricoes || []).find((x) => x.status === 'ativa') || (e.inscricoes || [])[0];
+    const o = dados.testes.find((x) => x.empresa_id === e.id);
+    const fixo = e.status === 'opt_out';
+    const cad = i ? (i.status === 'ativa' ? `Toque ${i.passo_atual} · ${dataHora(i.proxima_acao_em).split(' —')[0]}` : `Cadência ${i.status}`) : 'Fora da cadência';
+    return html`<article class="card sdr-card" ${fixo ? '' : raw('draggable="true"')} data-empresa="${e.id}" tabindex="0" aria-label="${nomeCurto(e.nome)}, ${(STATUS[e.status] || [e.status])[0]}">
+      <div class="card-topo">
+        <div class="tit"><b>${nomeCurto(e.nome)}</b><span class="empresa">${e.cidade || ''}${e.porte === 'equipe' ? ' · equipe' : e.porte ? ' · solo' : ''}</span></div>
+        ${fixo ? '' : html`<button class="btn-icone card-mover" data-mover-clinica aria-label="Mover para outra coluna" title="Mover para outra coluna">${raw(icon('move', 16))}</button>`}
+      </div>
+      <div class="card-linha"><span class="sdr-contatos">
+        <span class="${e.email ? 'tem' : ''}" title="${e.email || 'Sem e-mail'}">${raw(icon('mail', 13))}</span>
+        <span class="${e.whatsapp || e.telefone ? 'tem' : ''}" title="${e.whatsapp || e.telefone || 'Sem telefone'}">${raw(icon('phone', 13))}</span>
+        <span class="${e.instagram ? 'tem' : ''}" title="${e.instagram || 'Sem Instagram'}">${raw(icon('user', 13))}</span></span>
+        <span style="margin-left:auto">${e.google_nota ?? '—'} ★ (${num(e.google_avaliacoes || 0)})</span></div>
+      <div class="card-linha">${raw(icon('history', 13))}${cad}</div>
+      ${o ? html`<div class="card-linha">${raw(icon('clock', 13))}Cliente oculto: ${o.primeira_resposta_em ? `${o.minutos_ate_resposta} min` : 'sem resposta'}</div>` : ''}
+      <div class="card-rodape"><span class="prio-sdr prio-${e.prioridade}">${e.prioridade}</span>${badge(STATUS, e.status)}</div>
+    </article>`;
+  }
+
+  // Leva a clínica para a coluna escolhida, usando as mesmas ações do SDR.
+  async function moverClinica(id, destino) {
+    const e = dados.empresas.find((x) => x.id === id);
+    if (!e || e.status === 'opt_out') return;
+    const origem = colunaDe(e);
+    if (origem === destino) return;
+    const post = (corpo) => api('/api/sdr', corpo);
+    const i = (e.inscricoes || [])[0];
+    try {
+      if (destino === 'contactar') {
+        await post({ acao: 'status_empresa', empresa_id: e.id, status: 'enriquecido' });
+        toast(`${nomeCurto(e.nome)} voltou para Contactar${i?.status === 'ativa' ? ' (cadência pausada)' : ''}.`);
+      } else if (destino === 'aguardando') {
+        if (e.status === 'em_cadencia' && i?.status === 'ativa') {
+          toast('Ela passa para "Aguardando resposta" assim que o primeiro toque for enviado (aba Hoje).', 'erro'); return;
+        }
+        if (!(e.inscricoes || []).length) {
+          if (!(await confirmar({ titulo: 'Inscrever na cadência?', mensagem: `${nomeCurto(e.nome)} entra na cadência de 14 dias a partir do próximo dia útil. ${e.email ? '' : 'Sem e-mail: os toques de e-mail viram tarefas de WhatsApp/Instagram. '}Nada sai sem a sua aprovação.`, confirmar: 'Inscrever' }))) return;
+          if (BLOQUEADOS.includes(e.status)) await post({ acao: 'status_empresa', empresa_id: e.id, status: 'enriquecido' });
+          const r = await post({ acao: 'inscrever', empresa_ids: [e.id] });
+          if (r.falhas?.length) throw new Error(r.falhas[0].erro);
+          toast(`${nomeCurto(e.nome)} inscrita na cadência.`);
+        } else {
+          await post({ acao: 'status_empresa', empresa_id: e.id, status: 'em_cadencia' });
+          toast(`${nomeCurto(e.nome)} em Aguardando resposta${i?.status === 'pausada' ? ' (cadência retomada)' : ''}.`);
+        }
+      } else if (destino === 'atendimento') {
+        await post({ acao: 'status_empresa', empresa_id: e.id, status: 'interessado' });
+        toast(`${nomeCurto(e.nome)} em atendimento. A cadência automática foi pausada.`);
+      } else if (destino === 'fechado') {
+        const r = await escolherFechamento(e);
+        if (!r) return;
+        await post({ acao: 'status_empresa', empresa_id: e.id, status: r.status, motivo: r.motivo || undefined });
+        toast(r.status === 'ganho' ? `${nomeCurto(e.nome)} virou cliente!` : `${nomeCurto(e.nome)} marcada como perdida.`);
+      }
+      await carregar();
+    } catch (er) { toastErro(er); }
+  }
+
+  function escolherFechamento(e) {
+    return new Promise((resolve) => {
+      const md = abrirModal({ titulo: `Fechar · ${nomeCurto(e.nome)}`, tamanho: 's',
+        corpo: html`<form novalidate style="display:grid;gap:12px">
+          <div class="segmentado" role="radiogroup" aria-label="Resultado">
+            <button type="button" data-res="ganho" aria-pressed="true">Virou cliente</button>
+            <button type="button" data-res="perdido" aria-pressed="false">Perdida</button></div>
+          <label class="campo" data-motivo hidden><span>Motivo (opcional)</span><input name="motivo" maxlength="300" placeholder="Ex.: já tem sistema, sem orçamento agora"></label>
+        </form>`,
+        rodape: html`<button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-primario" data-ok>Confirmar</button>`,
+        aoFechar: (v) => resolve(v) });
+      let res = 'ganho';
+      md.el.querySelectorAll('[data-res]').forEach((b) => b.addEventListener('click', () => {
+        res = b.dataset.res;
+        md.el.querySelectorAll('[data-res]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+        md.el.querySelector('[data-motivo]').hidden = res !== 'perdido';
+      }));
+      md.el.querySelector('[data-ok]').addEventListener('click', () => md.fechar({ status: res, motivo: res === 'perdido' ? md.el.querySelector('[name=motivo]').value.trim() : '' }));
+    });
+  }
+
+  function menuMoverClinica(botao, id) {
+    document.querySelector('.menu-mover')?.remove();
+    const e = dados.empresas.find((x) => x.id === id); if (!e) return;
+    const atual = colunaDe(e);
+    const menu = document.createElement('div');
+    menu.className = 'popover menu-mover'; menu.setAttribute('role', 'menu');
+    mount(menu, html`<div class="notif-topo" style="padding:8px 10px"><b>Mover para</b></div>
+      ${COLUNAS.map((c) => html`<button class="menu-item" role="menuitem" data-destino="${c.k}" ${c.k === atual ? raw('disabled aria-current="true"') : ''}>
+        <span class="cor-amostra" style="background:${c.cor}"></span>${c.t}${c.k === atual ? ' (atual)' : ''}</button>`)}`);
+    document.body.appendChild(menu);
+    const r = botao.getBoundingClientRect();
+    menu.style.top = `${Math.min(r.bottom + 6, innerHeight - menu.offsetHeight - 8)}px`;
+    menu.style.left = `${Math.max(8, Math.min(r.right - menu.offsetWidth, innerWidth - menu.offsetWidth - 8))}px`;
+    $('[data-destino]:not([disabled])', menu)?.focus();
+    const fechar = () => { menu.remove(); document.removeEventListener('mousedown', fora, true); document.removeEventListener('keydown', esc); };
+    const fora = (ev) => { if (!menu.contains(ev.target)) fechar(); };
+    const esc = (ev) => { if (ev.key === 'Escape') { fechar(); botao.focus(); } };
+    document.addEventListener('mousedown', fora, true); document.addEventListener('keydown', esc);
+    menu.addEventListener('click', (ev) => { const b = ev.target.closest('[data-destino]'); if (b) { fechar(); moverClinica(id, b.dataset.destino); } });
+  }
+
+  // Arrastar e soltar (registrado uma vez; o quadro é redesenhado dentro de "conteudo")
+  let arrastando = null;
+  conteudo.addEventListener('dragstart', (ev) => {
+    const c = ev.target.closest?.('.sdr-card'); if (!c) return;
+    arrastando = c.dataset.empresa; c.classList.add('arrastando');
+    ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', arrastando);
+  });
+  conteudo.addEventListener('dragend', (ev) => { ev.target.closest?.('.sdr-card')?.classList.remove('arrastando'); $$('.coluna.alvo', conteudo).forEach((x) => x.classList.remove('alvo')); arrastando = null; });
+  conteudo.addEventListener('dragover', (ev) => {
+    const col = ev.target.closest?.('.kanban-sdr .coluna'); if (!col || !arrastando) return;
+    ev.preventDefault(); ev.dataTransfer.dropEffect = 'move';
+    $$('.coluna.alvo', conteudo).forEach((x) => x !== col && x.classList.remove('alvo'));
+    col.classList.add('alvo');
+  });
+  conteudo.addEventListener('dragleave', (ev) => { const col = ev.target.closest?.('.kanban-sdr .coluna'); if (col && !col.contains(ev.relatedTarget)) col.classList.remove('alvo'); });
+  conteudo.addEventListener('drop', (ev) => {
+    const col = ev.target.closest?.('.kanban-sdr .coluna'); if (!col) return;
+    ev.preventDefault(); col.classList.remove('alvo');
+    const id = ev.dataTransfer.getData('text/plain') || arrastando;
+    if (id) moverClinica(id, col.dataset.coluna);
+  });
+  conteudo.addEventListener('keydown', (ev) => {
+    const c = ev.target.closest?.('.sdr-card'); if (!c || ev.target !== c) return;
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); modalEmpresa(c.dataset.empresa); }
+    if ((ev.key === 'm' || ev.key === 'M') && $('[data-mover-clinica]', c)) { ev.preventDefault(); menuMoverClinica($('[data-mover-clinica]', c), c.dataset.empresa); }
+  });
+
   function atualizarBotaoInscrever() {
     const b = $('[data-inscrever]', conteudo); if (!b) return;
     b.disabled = !selecionadas.size;
@@ -418,6 +595,13 @@ export async function render(view, params) {
     }
 
     // Clínicas
+    const vis = alvo.closest('[data-visao]');
+    if (vis) { if (vis.dataset.visao !== visao) { visao = vis.dataset.visao; gravarVisao(visao); abaClinicas(); } return; }
+    if (alvo.closest('[data-descartadas]')) { mostrarDescartadas = alvo.closest('[data-descartadas]').checked; return desenharTabela(); }
+    const mv = alvo.closest('[data-mover-clinica]');
+    if (mv) { ev.stopPropagation(); return menuMoverClinica(mv, mv.closest('.sdr-card').dataset.empresa); }
+    const cartao = alvo.closest('.sdr-card');
+    if (cartao) return modalEmpresa(cartao.dataset.empresa);
     if (alvo.closest('[data-todas]')) {
       const marcar = alvo.closest('[data-todas]').checked;
       $$('[data-sel]', conteudo).forEach((c) => { c.checked = marcar; marcar ? selecionadas.add(c.dataset.sel) : selecionadas.delete(c.dataset.sel); });
@@ -449,6 +633,7 @@ export async function render(view, params) {
 
   await carregar();
   return {
-    temAlteracoes: () => false
+    temAlteracoes: () => false,
+    destruir: () => document.querySelector('.menu-mover')?.remove()
   };
 }

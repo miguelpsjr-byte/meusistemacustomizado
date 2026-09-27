@@ -439,3 +439,11 @@ input[type=color] { width: 44px; height: 38px; padding: 3px; border: 1px solid v
 .aba-num { color: var(--laranja-escuro); }
 @media (max-width: 720px) { .sdr-msg-rodape .acoes { width: 100%; } .sdr-msg-rodape .btn { flex: 1 1 auto; } }
 .sdr-procs { color: var(--texto-3); font-size: 13px; margin-top: 10px; }
+
+/* ---------- SDR: quadro das clínicas ---------- */
+.kanban-sdr { min-height: 60vh; grid-auto-columns: minmax(260px, 1fr); }
+.sdr-card .sdr-contatos span { width: 22px; height: 22px; border-radius: 6px; }
+.sdr-card .card-rodape { justify-content: flex-start; }
+.sdr-dica { color: var(--texto-3); font-size: 13px; }
+@media (max-width: 760px) { .sdr-dica { display: none; } }
+.segmentado button { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
