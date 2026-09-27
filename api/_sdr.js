@@ -90,19 +90,31 @@ async function ia(mensagens, { json = true, max = 700, temperatura = 0.6 } = {})
 const ASSINATURA = 'Miguel\nMeu Sistema Customizado · Balneário Camboriú\nwww.meusistemacustomizado.com';
 const RODAPE_OPTOUT = 'Se não quiser mais receber, é só responder "sair".';
 
+// Oferta padrão da prospecção. Tem prioridade sobre os modelos de mensagem da cadência (no banco).
+const SITE = 'www.meusistemacustomizado.com';
+const OFERTA = `OFERTA PADRÃO (tem prioridade sobre o MODELO do passo):
+- O que é: implantação de um chat com IA que atende 24 horas por dia, com respostas naturais que parecem atendimento humano; tira dúvidas sobre procedimentos, passa informações e encaminha o paciente para agendar.
+- Valor: 10x de R$ 208,00. Cite o valor assim, exatamente, uma vez por mensagem, sem "a partir de" e sem outros preços ou descontos.
+- Site: ${SITE}. Inclua o site no corpo da mensagem, uma vez, escrito exatamente assim (sem https://).
+- NÃO ofereça vídeo, demonstração gravada nem "link do vídeo". Se o MODELO falar em vídeo, troque pela oferta acima.
+- Não prometa integração com WhatsApp ou Instagram da clínica; fale em "chat com IA" / "atendimento com IA 24h".
+- Feche com uma pergunta curta e fácil de responder (ex.: "Faz sentido eu te mostrar como ficaria para a {{nome}}?").`;
+
 const SISTEMA_RASCUNHO = `Você escreve mensagens de prospecção B2B do Miguel, dono da Meu Sistema Customizado (Balneário Camboriú/SC), empresa que cria chatbot com IA, CRM e automações para pequenas empresas.
 Destinatário: uma clínica de estética de Balneário Camboriú ou Itajaí.
 
+${OFERTA}
+
 Regras:
 - Português do Brasil, tom de vizinho de negócio: direto, educado, sem bajulação, sem emoji, sem exclamações em excesso.
-- Siga o MODELO do passo e a INSTRUÇÃO do passo. Mantenha a ideia, o tamanho e a pergunta final do modelo.
+- Siga o MODELO do passo e a INSTRUÇÃO do passo (ideia e tamanho), sempre respeitando a OFERTA PADRÃO acima.
 - Substitua {{nome}} pelo "Nome da clínica para usar no texto" dos dados, exatamente como está.
 - Comece a mensagem com o "Cumprimento de abertura" dos dados (troca o "Oi, tudo bem?" do modelo).
 - {{gancho}}: 1 frase citando algo REAL dos dados (fato, procedimento, cidade, resultado do cliente oculto). Nunca invente números, prêmios, anos ou elogios que não estejam nos dados.
 - Se houver resultado de cliente oculto, ele é o melhor gancho, mas cite com tato ("mandei uma mensagem pelo WhatsApp de vocês na terça, às 14h10, e..."), sem acusar. Use o dia e a hora que vierem nos dados, de forma natural; nunca invente datas.
 - Não cite avaliações negativas do Google. Não fale de concorrentes pelo nome.
-- Nada de links inventados. Se o modelo tiver [link do vídeo], mantenha exatamente "[link do vídeo]".
-- Preço só se o modelo já trouxer.
+- Nenhum link além do site da oferta. Nada de "[link do vídeo]" ou outros marcadores.
+- O único preço permitido é o da OFERTA PADRÃO.
 - Nunca diga que mandou e-mail quando os dados disserem que a clínica não tem e-mail: nesse caso os contatos anteriores foram por WhatsApp/Instagram, então trate como continuação da conversa ("te chamei aqui na segunda...") ou como primeiro contato, conforme o toque.
 - Não inclua assinatura nem rodapé: eles são adicionados depois.
 Responda em JSON: {"assunto": "...", "corpo": "..."} (assunto vazio quando o canal não for e-mail).`;
@@ -155,11 +167,11 @@ function dadosClinica(f) {
 async function gerarTexto(f, { canalEntrega } = {}) {
   const canal = canalEntrega || f.canal;
   const instrucaoCanal = canal === 'email'
-    ? 'Canal: e-mail. Até 120 palavras no corpo.'
+    ? 'Canal: e-mail. Até 130 palavras no corpo.'
     : canal === 'whatsapp_manual'
-      ? 'Canal: WhatsApp, enviado à mão pelo Miguel. Até 60 palavras, sem assunto, sem formatação, sem link. Se o modelo era de e-mail, adapte para conversa de WhatsApp.'
+      ? 'Canal: WhatsApp, enviado à mão pelo Miguel. Até 70 palavras, sem assunto, sem formatação; o único link é o site da oferta. Se o modelo era de e-mail, adapte para conversa de WhatsApp.'
       : canal === 'instagram_manual'
-        ? 'Canal: direct do Instagram, enviado à mão. Até 50 palavras, sem assunto, sem link.'
+        ? 'Canal: direct do Instagram, enviado à mão. Até 60 palavras, sem assunto; o único link é o site da oferta.'
         : 'Canal: roteiro de ligação para o Miguel. Tópicos curtos: abertura, 1 pergunta, gancho, pedido de 10 minutos.';
   const r = await ia([
     { role: 'system', content: SISTEMA_RASCUNHO },
