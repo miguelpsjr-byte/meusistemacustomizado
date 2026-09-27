@@ -96,16 +96,28 @@ Destinatário: uma clínica de estética de Balneário Camboriú ou Itajaí.
 Regras:
 - Português do Brasil, tom de vizinho de negócio: direto, educado, sem bajulação, sem emoji, sem exclamações em excesso.
 - Siga o MODELO do passo e a INSTRUÇÃO do passo. Mantenha a ideia, o tamanho e a pergunta final do modelo.
-- Substitua {{nome}} pelo nome curto da clínica (sem "Ltda", sem sufixos de endereço como "- Itajaí").
+- Substitua {{nome}} pelo "Nome da clínica para usar no texto" dos dados, exatamente como está.
+- Comece a mensagem com o "Cumprimento de abertura" dos dados (troca o "Oi, tudo bem?" do modelo).
 - {{gancho}}: 1 frase citando algo REAL dos dados (fato, procedimento, cidade, resultado do cliente oculto). Nunca invente números, prêmios, anos ou elogios que não estejam nos dados.
 - Se houver resultado de cliente oculto, ele é o melhor gancho, mas cite com tato ("mandei uma mensagem pelo WhatsApp de vocês na terça e..."), sem acusar.
 - Não cite avaliações negativas do Google. Não fale de concorrentes pelo nome.
-- Se souber o nome do(a) responsável, cumprimente pelo primeiro nome (com "Dra." quando for o caso).
 - Nada de links inventados. Se o modelo tiver [link do vídeo], mantenha exatamente "[link do vídeo]".
 - Preço só se o modelo já trouxer.
 - Nunca diga que mandou e-mail quando os dados disserem que a clínica não tem e-mail: nesse caso os contatos anteriores foram por WhatsApp/Instagram, então trate como continuação da conversa ("te chamei aqui na segunda...") ou como primeiro contato, conforme o toque.
 - Não inclua assinatura nem rodapé: eles são adicionados depois.
 Responda em JSON: {"assunto": "...", "corpo": "..."} (assunto vazio quando o canal não for e-mail).`;
+
+// Nome como aparece no texto: sem "TESTE -", sem sufixo de cidade/rede
+function nomeTexto(nome) {
+  return String(nome || '').replace(/^TESTE\s*-\s*/i, '').replace(/\s+-\s+(Balneário Camboriú|Itajaí|Estética Avançada|Harmonização.*)$/i, '').replace(/\s+(Balneário Camboriú|Itajaí)$/i, '').trim();
+}
+// "Dr. Rafael Lucci" -> "Dr. Rafael"; "Laís Loraine" -> "Laís"; vários nomes -> sem nome
+function cumprimento(resp) {
+  const r = String(resp || '').trim();
+  if (!r || /\se\s/.test(r)) return 'Oi, tudo bem?';
+  const m = r.match(/^(Dra?\.)\s+(\S+)/i);
+  return m ? `Oi, ${m[1]} ${m[2]}, tudo bem?` : `Oi, ${r.split(/\s+/)[0]}, tudo bem?`;
+}
 
 function dadosClinica(f) {
   const oculto = f.oculto_sem_resposta ? 'Cliente oculto: mandamos mensagem e a clínica NÃO respondeu.'
@@ -113,6 +125,8 @@ function dadosClinica(f) {
       : 'Cliente oculto: ainda não testado.';
   return [
     `Clínica: ${f.nome} (${f.cidade})`,
+    `Nome da clínica para usar no texto e no assunto: ${nomeTexto(f.nome)}`,
+    `Cumprimento de abertura (use exatamente): ${cumprimento(f.responsavel)}`,
     f.responsavel ? `Responsável: ${f.responsavel}` : '',
     f.procedimentos?.length ? `Procedimentos: ${f.procedimentos.join(', ')}` : '',
     f.fato ? `Fato verificável: ${f.fato}` : '',
@@ -441,7 +455,7 @@ async function enriquecer(empresaId) {
 
 module.exports = {
   db, rpc, enc, erro, ia, hojeSP, inicioHojeISO, limiteDia,
-  gerarTexto, gerarRascunhos, canalEntrega, dadosClinica,
+  gerarTexto, gerarRascunhos, canalEntrega, dadosClinica, nomeTexto, cumprimento,
   bloqueado, registrarOptOut, enviarMensagem, enviarAprovados, enviadosHoje, enviarAviso, smtp, remetente,
   lerRespostas, enriquecer, extrair, decodificarCfEmail, limparCorpo
 };
