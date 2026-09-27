@@ -24,7 +24,8 @@ const COLUNAS = [
   { k: 'contactar', t: 'Contactar', cor: '#94A3B8', sub: 'Ainda sem o primeiro contato' },
   { k: 'aguardando', t: 'Aguardando resposta', cor: '#F59E0B', sub: 'Abordadas, na cadência' },
   { k: 'atendimento', t: 'Em atendimento', cor: '#F97316', sub: 'Responderam, em conversa' },
-  { k: 'fechado', t: 'Fechado', cor: '#16A34A', sub: 'Clientes e perdidas' }
+  { k: 'ganho', t: 'Ganho', cor: '#16A34A', sub: 'Viraram clientes' },
+  { k: 'perdido', t: 'Perdido', cor: '#DC2626', sub: 'Não fecharam' }
 ];
 const BLOQUEADOS = ['ganho', 'perdido', 'descartado', 'opt_out'];
 function colunaDe(e) {
@@ -32,7 +33,7 @@ function colunaDe(e) {
   if (['novo', 'enriquecido'].includes(e.status)) return 'contactar';
   if (e.status === 'em_cadencia') return i && i.status === 'ativa' && Number(i.passo_atual) <= 1 ? 'contactar' : 'aguardando';
   if (['respondeu', 'interessado', 'reuniao'].includes(e.status)) return 'atendimento';
-  return 'fechado';
+  return e.status === 'ganho' ? 'ganho' : 'perdido';
 }
 const lerVisao = () => { try { return localStorage.getItem('sdr-visao') === 'lista' ? 'lista' : 'quadro'; } catch { return 'quadro'; } };
 const gravarVisao = (v) => { try { localStorage.setItem('sdr-visao', v); } catch { /* sem armazenamento: fica só nesta sessão */ } };
@@ -250,11 +251,10 @@ export async function render(view, params) {
     mount(box, html`<div class="kanban kanban-sdr" aria-label="Quadro das clínicas">${COLUNAS.map((c) => {
       let cards = lista.filter((e) => colunaDe(e) === c.k);
       if (c.k === 'aguardando' || c.k === 'contactar') cards = [...cards].sort((a, b) => String(a.prioridade).localeCompare(String(b.prioridade)) || proxima(a) - proxima(b));
-      const ganhas = c.k === 'fechado' ? cards.filter((e) => e.status === 'ganho').length : 0;
       return html`<section class="coluna" data-coluna="${c.k}" aria-label="${c.t}">
         <header class="coluna-topo">
           <div class="coluna-titulo"><span class="bloco" style="background:${c.cor}"></span>${c.t}<span class="qtd">${cards.length}</span></div>
-          <div class="coluna-total">${c.k === 'fechado' && cards.length ? `${plural(ganhas, 'cliente', 'clientes')} · ${plural(cards.length - ganhas, 'perdida', 'perdidas')}` : c.sub}</div>
+          <div class="coluna-total">${c.sub}</div>
         </header>
         <div class="coluna-cards">${cards.length ? cards.map(cartaoClinica) : html`<div class="coluna-vazia">Solte um card aqui</div>`}</div>
       </section>`;
@@ -311,34 +311,27 @@ export async function render(view, params) {
       } else if (destino === 'atendimento') {
         await post({ acao: 'status_empresa', empresa_id: e.id, status: 'interessado' });
         toast(`${nomeCurto(e.nome)} em atendimento. A cadência automática foi pausada.`);
-      } else if (destino === 'fechado') {
-        const r = await escolherFechamento(e);
-        if (!r) return;
-        await post({ acao: 'status_empresa', empresa_id: e.id, status: r.status, motivo: r.motivo || undefined });
-        toast(r.status === 'ganho' ? `${nomeCurto(e.nome)} virou cliente!` : `${nomeCurto(e.nome)} marcada como perdida.`);
+      } else if (destino === 'ganho') {
+        await post({ acao: 'status_empresa', empresa_id: e.id, status: 'ganho' });
+        toast(`${nomeCurto(e.nome)} virou cliente!`);
+      } else if (destino === 'perdido') {
+        const motivo = await pedirMotivoPerda(e);
+        if (motivo === null) return;
+        await post({ acao: 'status_empresa', empresa_id: e.id, status: 'perdido', motivo: motivo || undefined });
+        toast(`${nomeCurto(e.nome)} marcada como perdida.`);
       }
       await carregar();
     } catch (er) { toastErro(er); }
   }
 
-  function escolherFechamento(e) {
+  // Resolve com o motivo (pode ser vazio) ou null se cancelar.
+  function pedirMotivoPerda(e) {
     return new Promise((resolve) => {
-      const md = abrirModal({ titulo: `Fechar · ${nomeCurto(e.nome)}`, tamanho: 's',
-        corpo: html`<form novalidate style="display:grid;gap:12px">
-          <div class="segmentado" role="radiogroup" aria-label="Resultado">
-            <button type="button" data-res="ganho" aria-pressed="true">Virou cliente</button>
-            <button type="button" data-res="perdido" aria-pressed="false">Perdida</button></div>
-          <label class="campo" data-motivo hidden><span>Motivo (opcional)</span><input name="motivo" maxlength="300" placeholder="Ex.: já tem sistema, sem orçamento agora"></label>
-        </form>`,
-        rodape: html`<button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-primario" data-ok>Confirmar</button>`,
-        aoFechar: (v) => resolve(v) });
-      let res = 'ganho';
-      md.el.querySelectorAll('[data-res]').forEach((b) => b.addEventListener('click', () => {
-        res = b.dataset.res;
-        md.el.querySelectorAll('[data-res]').forEach((x) => x.setAttribute('aria-pressed', x === b));
-        md.el.querySelector('[data-motivo]').hidden = res !== 'perdido';
-      }));
-      md.el.querySelector('[data-ok]').addEventListener('click', () => md.fechar({ status: res, motivo: res === 'perdido' ? md.el.querySelector('[name=motivo]').value.trim() : '' }));
+      const md = abrirModal({ titulo: `Perdida · ${nomeCurto(e.nome)}`, tamanho: 's',
+        corpo: html`<label class="campo"><span>Motivo (opcional)</span><input name="motivo" maxlength="300" placeholder="Ex.: já tem sistema, sem orçamento agora"></label>`,
+        rodape: html`<button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-primario" data-ok>Marcar como perdida</button>`,
+        aoFechar: (v) => resolve(v === undefined ? null : v) });
+      md.el.querySelector('[data-ok]').addEventListener('click', () => md.fechar(md.el.querySelector('[name=motivo]').value.trim()));
     });
   }
 
