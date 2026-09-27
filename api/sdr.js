@@ -45,7 +45,7 @@ const ACOES = {
     const [f] = await db(`vw_fila_hoje?inscricao_id=eq.${enc(m.inscricao_id)}`);
     if (!f) throw erro('fila', 'Esse passo não está na fila de hoje.', 400);
     const canalTexto = m.canal === 'tarefa' ? 'whatsapp_manual' : m.canal;
-    const { assunto, corpo } = await S.gerarTexto(f, { canalEntrega: canalTexto });
+    const { assunto, corpo } = await S.gerarTexto(await S.comDatasOculto(f), { canalEntrega: canalTexto });
     const [nova] = await db(`mensagens?id=eq.${enc(m.id)}`, { method: 'PATCH', body: { assunto, corpo, status: 'rascunho', erro: null } });
     return { mensagem: nova };
   },
@@ -112,6 +112,22 @@ const ACOES = {
     await db(`mensagens?inscricao_id=eq.${enc(inscricao_id)}&direcao=eq.saida&status=in.(rascunho,aprovado,falhou)`, { method: 'PATCH', prefer: 'return=minimal', body: { status: 'descartado', erro: feito_por_fora ? 'Contato feito por fora (movido no quadro).' : 'Passo pulado.' } });
     const [i] = await rpc('avancar', { p_inscricao: inscricao_id }).then((r) => (Array.isArray(r) ? r : [r]));
     return { inscricao: i };
+  },
+
+  // Quadro: Diagnóstico -> Contactar. Inscreve (ou reinicia no toque 1), deixa na fila agora e já cria o rascunho.
+  async contactar({ empresa_id }) {
+    const e = id(empresa_id, 'empresa_id');
+    const [emp] = await db(`empresas?id=eq.${enc(e)}&select=status`);
+    if (!emp) throw erro('entrada', 'Clínica não encontrada.', 404);
+    if (emp.status === 'opt_out') throw erro('status', 'Essa clínica pediu para sair (opt-out).', 400);
+    if (['ganho', 'perdido', 'descartado'].includes(emp.status)) await db(`empresas?id=eq.${enc(e)}`, { method: 'PATCH', prefer: 'return=minimal', body: { status: 'enriquecido' } });
+    const [i] = await rpc('inscrever', { p_empresa: e }).then((r) => (Array.isArray(r) ? r : [r]));
+    if (!i?.id) throw erro('inscricao', 'Não foi possível inscrever na cadência.', 500);
+    const reinicia = i.status !== 'ativa';
+    await db(`inscricoes?id=eq.${enc(i.id)}`, { method: 'PATCH', prefer: 'return=minimal', body: { status: 'ativa', motivo_parada: null, proxima_acao_em: new Date().toISOString(), ...(reinicia ? { passo_atual: 1 } : {}) } });
+    await db(`empresas?id=eq.${enc(e)}`, { method: 'PATCH', prefer: 'return=minimal', body: { status: 'em_cadencia' } });
+    const r = await S.gerarRascunhos({ max: 1, prazoMs: 40000, empresaId: e });
+    return { ...r, inscricao_id: i.id };
   },
 
   async inscrever({ empresa_ids }) {
