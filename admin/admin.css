@@ -409,3 +409,33 @@ input[type=color] { width: 44px; height: 38px; padding: 3px; border: 1px solid v
   .contrato-doc mark, .contrato-doc .revisar { background: none; }
   .sidebar, .topo, .lateral, #toasts { display: none !important; }
 }
+
+/* ---------- SDR ---------- */
+.sdr-cards { display: grid; gap: 16px; }
+.sdr-msg { display: grid; gap: 12px; }
+.sdr-msg-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.sdr-msg-topo b { font-size: 16px; }
+.sdr-msg-topo .sub, .sdr-empresa-topo .sub { display: block; color: var(--texto-3); font-size: 13px; margin-top: 2px; }
+.sdr-msg textarea { font-family: inherit; }
+.sdr-msg-rodape { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--linha); padding-top: 12px; }
+.sdr-msg .sub, .sdr-respostas .sub { color: var(--texto-3); font-size: 12px; }
+.sdr-erro { color: var(--erro); font-size: 13px; background: var(--erro-bg); padding: 8px 12px; border-radius: var(--radius-s); }
+.prio-sdr { display: inline-grid; place-items: center; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 800; vertical-align: 2px; background: #F1F5F9; color: var(--texto-2); }
+.prio-sdr.prio-A { background: var(--laranja-suave); color: #C2410C; }
+.sdr-contatos { display: inline-flex; gap: 6px; }
+.sdr-contatos span { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: #F3F4F6; color: var(--texto-4); }
+.sdr-contatos span.tem { background: var(--ok-bg); color: var(--ok); }
+.sdr-funil { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sdr-funil-etapa { display: flex; align-items: center; gap: 8px; color: var(--texto-3); font-size: 13px; font-weight: 600; }
+.sdr-funil-etapa b { font-size: 20px; color: var(--grafite); }
+.sdr-funil-etapa .ico, .sdr-funil-etapa svg { color: var(--texto-4); }
+.sdr-resumo { font-size: 13px; color: var(--texto-2); margin: 6px 0 4px; }
+.sdr-respostas li { align-items: flex-start; }
+.sdr-respostas .principal-l > span { display: block; }
+.sdr-respostas details summary { cursor: pointer; font-size: 12px; color: var(--laranja-escuro); font-weight: 600; }
+.sdr-pre { white-space: pre-wrap; font-family: inherit; font-size: 13px; background: var(--fundo); padding: 10px 12px; border-radius: var(--radius-s); margin-top: 6px; max-height: 260px; overflow: auto; }
+.sdr-h3 { font-size: 14px; margin: 18px 0 6px; }
+.sdr-empresa-topo { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.aba-num { color: var(--laranja-escuro); }
+@media (max-width: 720px) { .sdr-msg-rodape .acoes { width: 100%; } .sdr-msg-rodape .btn { flex: 1 1 auto; } }
+.sdr-procs { color: var(--texto-3); font-size: 13px; margin-top: 10px; }

@@ -1,0 +1,13 @@
+{
+  "name": "meusistemacustomizado",
+  "private": true,
+  "description": "Site e Admin do Meu Sistema Customizado. As dependências são usadas só pelas funções em /api (SDR: envio SMTP e leitura IMAP).",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "imapflow": "^2.0.7",
+    "mailparser": "^3.9.28",
+    "nodemailer": "^10.0.10"
+  }
+}

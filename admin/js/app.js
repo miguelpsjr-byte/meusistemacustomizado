@@ -8,6 +8,7 @@ const raiz = document.getElementById('raiz');
 const NAV = [
   { rota: 'dashboard', txt: 'Dashboard', ic: 'dashboard' },
   { rota: 'crm', txt: 'CRM', ic: 'kanban' },
+  { rota: 'sdr', txt: 'SDR', ic: 'zap' },
   { rota: 'projetos', txt: 'Projetos', ic: 'projetos' },
   { rota: 'clientes', txt: 'Clientes', ic: 'clientes' },
   { rota: 'financeiro', txt: 'Financeiro', ic: 'financeiro' },
@@ -19,6 +20,7 @@ const NAV = [
 const PAGINAS = {
   dashboard: () => import('./pages/dashboard.js'),
   crm: () => import('./pages/crm.js'),
+  sdr: () => import('./pages/sdr.js'),
   projetos: () => import('./pages/projetos.js'),
   clientes: () => import('./pages/clientes.js'),
   financeiro: () => import('./pages/financeiro.js'),
