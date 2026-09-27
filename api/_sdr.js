@@ -99,7 +99,7 @@ Regras:
 - Substitua {{nome}} pelo "Nome da clínica para usar no texto" dos dados, exatamente como está.
 - Comece a mensagem com o "Cumprimento de abertura" dos dados (troca o "Oi, tudo bem?" do modelo).
 - {{gancho}}: 1 frase citando algo REAL dos dados (fato, procedimento, cidade, resultado do cliente oculto). Nunca invente números, prêmios, anos ou elogios que não estejam nos dados.
-- Se houver resultado de cliente oculto, ele é o melhor gancho, mas cite com tato ("mandei uma mensagem pelo WhatsApp de vocês na terça e..."), sem acusar.
+- Se houver resultado de cliente oculto, ele é o melhor gancho, mas cite com tato ("mandei uma mensagem pelo WhatsApp de vocês na terça, às 14h10, e..."), sem acusar. Use o dia e a hora que vierem nos dados, de forma natural; nunca invente datas.
 - Não cite avaliações negativas do Google. Não fale de concorrentes pelo nome.
 - Nada de links inventados. Se o modelo tiver [link do vídeo], mantenha exatamente "[link do vídeo]".
 - Preço só se o modelo já trouxer.
@@ -119,9 +119,21 @@ function cumprimento(resp) {
   return m ? `Oi, ${m[1]} ${m[2]}, tudo bem?` : `Oi, ${r.split(/\s+/)[0]}, tudo bem?`;
 }
 
+// "terça, 23/09 às 14:10" no fuso de Brasília
+function quandoSP(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const dia = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long' }).format(d).replace('-feira', '');
+  const data = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' }).format(d);
+  const hora = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).format(d);
+  return `${dia}, ${data} às ${hora}`;
+}
+
 function dadosClinica(f) {
-  const oculto = f.oculto_sem_resposta ? 'Cliente oculto: mandamos mensagem e a clínica NÃO respondeu.'
-    : f.oculto_minutos != null ? `Cliente oculto: a clínica respondeu em ${f.oculto_minutos} minutos${f.oculto_passou_preco === false ? ', sem passar preço' : ''}${f.oculto_followup_d3 === false ? ', e não voltou a chamar depois' : ''}.`
+  const canalOc = f.oculto_canal === 'instagram' ? 'pelo Instagram' : f.oculto_canal === 'telefone' ? 'por telefone' : f.oculto_canal === 'site' ? 'pelo site' : 'pelo WhatsApp';
+  const envio = f.oculto_enviado_em ? `mandamos mensagem ${canalOc} ${quandoSP(f.oculto_enviado_em)}` : 'mandamos mensagem';
+  const oculto = f.oculto_sem_resposta ? `Cliente oculto: ${envio} e a clínica NÃO respondeu até hoje.`
+    : f.oculto_minutos != null ? `Cliente oculto: ${envio}; a clínica respondeu ${f.oculto_resposta_em ? `${quandoSP(f.oculto_resposta_em)} ` : ''}(${f.oculto_minutos} minutos depois)${f.oculto_passou_preco === false ? ', sem passar preço' : ''}${f.oculto_followup_d3 === false ? ', e não voltou a chamar depois' : ''}.`
       : 'Cliente oculto: ainda não testado.';
   return [
     `Clínica: ${f.nome} (${f.cidade})`,
@@ -171,12 +183,19 @@ function canalEntrega(f) {
 }
 
 // Gera rascunhos para os itens da fila que ainda não têm mensagem.
-async function gerarRascunhos({ max = 8, prazoMs = 45000 } = {}) {
+// Acrescenta data/hora do último teste de cliente oculto (a view só traz os minutos).
+async function comDatasOculto(f) {
+  const [t] = await db(`testes_atendimento?empresa_id=eq.${enc(f.empresa_id)}&select=canal,enviado_em,primeira_resposta_em&order=enviado_em.desc&limit=1`).catch(() => []);
+  return t ? { ...f, oculto_canal: t.canal, oculto_enviado_em: t.enviado_em, oculto_resposta_em: t.primeira_resposta_em } : f;
+}
+
+async function gerarRascunhos({ max = 8, prazoMs = 45000, empresaId } = {}) {
   const inicio = Date.now();
-  const fila = await db('vw_fila_hoje?mensagem_id=is.null&order=prioridade,proxima_acao_em&limit=50');
+  const fila = await db(`vw_fila_hoje?mensagem_id=is.null${empresaId ? `&empresa_id=eq.${enc(empresaId)}` : ''}&order=prioridade,proxima_acao_em&limit=50`);
   let gerados = 0; const falhas = [];
-  for (const f of fila) {
+  for (const item of fila) {
     if (gerados >= max || Date.now() - inicio > prazoMs) break;
+    const f = await comDatasOculto(item);
     const canal = canalEntrega(f);
     try {
       const { assunto, corpo } = await gerarTexto(f, { canalEntrega: canal === 'tarefa' ? 'whatsapp_manual' : canal });
@@ -455,7 +474,7 @@ async function enriquecer(empresaId) {
 
 module.exports = {
   db, rpc, enc, erro, ia, hojeSP, inicioHojeISO, limiteDia,
-  gerarTexto, gerarRascunhos, canalEntrega, dadosClinica, nomeTexto, cumprimento,
+  gerarTexto, gerarRascunhos, comDatasOculto, canalEntrega, dadosClinica, nomeTexto, cumprimento,
   bloqueado, registrarOptOut, enviarMensagem, enviarAprovados, enviadosHoje, enviarAviso, smtp, remetente,
   lerRespostas, enriquecer, extrair, decodificarCfEmail, limparCorpo
 };

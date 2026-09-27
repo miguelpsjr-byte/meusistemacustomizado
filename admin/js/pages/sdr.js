@@ -21,19 +21,22 @@ const CLASSIFICACAO = {
 };
 // Quadro (Kanban) das clínicas: as colunas vêm do status que o SDR já grava, então a automação e o arrasto andam juntos.
 const COLUNAS = [
-  { k: 'contactar', t: 'Contactar', cor: '#94A3B8', sub: 'Ainda sem o primeiro contato' },
+  { k: 'diagnostico', t: 'Diagnóstico', cor: '#64748B', sub: 'Teste manual no WhatsApp' },
+  { k: 'contactar', t: 'Contactar', cor: '#3B82F6', sub: 'E-mail pronto para aprovar' },
   { k: 'aguardando', t: 'Aguardando resposta', cor: '#F59E0B', sub: 'Abordadas, na cadência' },
   { k: 'atendimento', t: 'Em atendimento', cor: '#F97316', sub: 'Responderam, em conversa' },
-  { k: 'fechado', t: 'Fechado', cor: '#16A34A', sub: 'Clientes e perdidas' }
+  { k: 'ganho', t: 'Ganho', cor: '#16A34A', sub: 'Viraram clientes' },
+  { k: 'perdido', t: 'Perdido', cor: '#DC2626', sub: 'Não fecharam' }
 ];
-const BLOQUEADOS = ['ganho', 'perdido', 'descartado', 'opt_out'];
 function colunaDe(e) {
   const i = (e.inscricoes || []).find((x) => x.status === 'ativa') || (e.inscricoes || [])[0];
-  if (['novo', 'enriquecido'].includes(e.status)) return 'contactar';
+  if (['novo', 'enriquecido'].includes(e.status)) return 'diagnostico';
   if (e.status === 'em_cadencia') return i && i.status === 'ativa' && Number(i.passo_atual) <= 1 ? 'contactar' : 'aguardando';
   if (['respondeu', 'interessado', 'reuniao'].includes(e.status)) return 'atendimento';
-  return 'fechado';
+  return e.status === 'ganho' ? 'ganho' : 'perdido';
 }
+// "26/09 09h40" no fuso de Brasília
+const curta = (ts) => { if (!ts) return ''; const f = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(ts)); const g = (t) => f.find((x) => x.type === t)?.value; return `${g('day')}/${g('month')} ${g('hour')}h${g('minute')}`; };
 const lerVisao = () => { try { return localStorage.getItem('sdr-visao') === 'lista' ? 'lista' : 'quadro'; } catch { return 'quadro'; } };
 const gravarVisao = (v) => { try { localStorage.setItem('sdr-visao', v); } catch { /* sem armazenamento: fica só nesta sessão */ } };
 
@@ -209,7 +212,7 @@ export async function render(view, params) {
             : html`<label class="check"><input type="checkbox" data-descartadas ${mostrarDescartadas ? raw('checked') : ''}>Mostrar descartadas e opt-out</label>`}
           <span style="flex:1"></span>
           ${visao === 'lista' ? html`<button class="btn btn-primario" data-inscrever disabled>${raw(icon('plus', 16))}Inscrever na cadência</button>`
-            : html`<span class="sub sdr-dica">Arraste os cards entre as colunas. Soltar em "Aguardando resposta" inscreve na cadência.</span>`}
+            : html`<span class="sub sdr-dica">Registre o WhatsApp em Diagnóstico e arraste para Contactar: a IA cria o e-mail citando o teste.</span>`}
         </div>
         <div data-tabela></div>
       </section>`);
@@ -249,12 +252,11 @@ export async function render(view, params) {
     const proxima = (e) => { const i = (e.inscricoes || []).find((x) => x.status === 'ativa'); return i ? new Date(i.proxima_acao_em).getTime() : Infinity; };
     mount(box, html`<div class="kanban kanban-sdr" aria-label="Quadro das clínicas">${COLUNAS.map((c) => {
       let cards = lista.filter((e) => colunaDe(e) === c.k);
-      if (c.k === 'aguardando' || c.k === 'contactar') cards = [...cards].sort((a, b) => String(a.prioridade).localeCompare(String(b.prioridade)) || proxima(a) - proxima(b));
-      const ganhas = c.k === 'fechado' ? cards.filter((e) => e.status === 'ganho').length : 0;
+      if (['diagnostico', 'contactar', 'aguardando'].includes(c.k)) cards = [...cards].sort((a, b) => String(a.prioridade).localeCompare(String(b.prioridade)) || proxima(a) - proxima(b));
       return html`<section class="coluna" data-coluna="${c.k}" aria-label="${c.t}">
         <header class="coluna-topo">
           <div class="coluna-titulo"><span class="bloco" style="background:${c.cor}"></span>${c.t}<span class="qtd">${cards.length}</span></div>
-          <div class="coluna-total">${c.k === 'fechado' && cards.length ? `${plural(ganhas, 'cliente', 'clientes')} · ${plural(cards.length - ganhas, 'perdida', 'perdidas')}` : c.sub}</div>
+          <div class="coluna-total">${c.sub}</div>
         </header>
         <div class="coluna-cards">${cards.length ? cards.map(cartaoClinica) : html`<div class="coluna-vazia">Solte um card aqui</div>`}</div>
       </section>`;
@@ -276,8 +278,10 @@ export async function render(view, params) {
         <span class="${e.whatsapp || e.telefone ? 'tem' : ''}" title="${e.whatsapp || e.telefone || 'Sem telefone'}">${raw(icon('phone', 13))}</span>
         <span class="${e.instagram ? 'tem' : ''}" title="${e.instagram || 'Sem Instagram'}">${raw(icon('user', 13))}</span></span>
         <span style="margin-left:auto">${e.google_nota ?? '—'} ★ (${num(e.google_avaliacoes || 0)})</span></div>
-      <div class="card-linha">${raw(icon('history', 13))}${cad}</div>
-      ${o ? html`<div class="card-linha">${raw(icon('clock', 13))}Cliente oculto: ${o.primeira_resposta_em ? `${o.minutos_ate_resposta} min` : 'sem resposta'}</div>` : ''}
+      ${colunaDe(e) === 'diagnostico' ? '' : html`<div class="card-linha">${raw(icon('history', 13))}${cad}</div>`}
+      ${o ? html`<div class="card-linha">${raw(icon('phone', 13))}${o.canal === 'instagram' ? 'Instagram' : 'WhatsApp'} ${curta(o.enviado_em)} · ${o.primeira_resposta_em ? `resp. em ${o.minutos_ate_resposta} min` : html`<span class="badge badge-erro">sem resposta</span>`}</div>`
+        : colunaDe(e) === 'diagnostico' ? html`<div class="card-linha">${raw(icon('phone', 13))}WhatsApp ainda não registrado</div>` : ''}
+      ${colunaDe(e) === 'diagnostico' ? html`<button class="btn btn-secundario btn-p" data-oculto="${e.id}" data-teste="${o?.id || ''}">${o ? 'Editar teste' : 'Registrar WhatsApp'}</button>` : ''}
       <div class="card-rodape"><span class="prio-sdr prio-${e.prioridade}">${e.prioridade}</span>${badge(STATUS, e.status)}</div>
     </article>`;
   }
@@ -291,19 +295,22 @@ export async function render(view, params) {
     const post = (corpo) => api('/api/sdr', corpo);
     const i = (e.inscricoes || [])[0];
     try {
-      if (destino === 'contactar') {
+      if (destino === 'diagnostico') {
         await post({ acao: 'status_empresa', empresa_id: e.id, status: 'enriquecido' });
-        toast(`${nomeCurto(e.nome)} voltou para Contactar${i?.status === 'ativa' ? ' (cadência pausada)' : ''}.`);
+        toast(`${nomeCurto(e.nome)} voltou para Diagnóstico${i?.status === 'ativa' ? ' (cadência pausada)' : ''}.`);
+      } else if (destino === 'contactar' || (destino === 'aguardando' && origem === 'diagnostico')) {
+        const teste = dados.testes.find((x) => x.empresa_id === e.id);
+        if (!teste && !(await confirmar({ titulo: 'Sem teste de WhatsApp', mensagem: `Você ainda não registrou o WhatsApp enviado para ${nomeCurto(e.nome)}. Criar o e-mail mesmo assim (sem citar o teste)?`, confirmar: 'Criar e-mail' }))) return;
+        toast('Criando o e-mail com a IA…');
+        const r = await post({ acao: 'contactar', empresa_id: e.id });
+        if (r.falhas?.length) toast(r.falhas[0].erro, 'erro');
+        else toast(r.gerados ? `Rascunho criado para ${nomeCurto(e.nome)}. Aprove na aba Hoje.` : `${nomeCurto(e.nome)} está em Contactar. O rascunho já existia ou sai na próxima rodada.`);
       } else if (destino === 'aguardando') {
         if (e.status === 'em_cadencia' && i?.status === 'ativa') {
-          toast('Ela passa para "Aguardando resposta" assim que o primeiro toque for enviado (aba Hoje).', 'erro'); return;
-        }
-        if (!(e.inscricoes || []).length) {
-          if (!(await confirmar({ titulo: 'Inscrever na cadência?', mensagem: `${nomeCurto(e.nome)} entra na cadência de 14 dias a partir do próximo dia útil. ${e.email ? '' : 'Sem e-mail: os toques de e-mail viram tarefas de WhatsApp/Instagram. '}Nada sai sem a sua aprovação.`, confirmar: 'Inscrever' }))) return;
-          if (BLOQUEADOS.includes(e.status)) await post({ acao: 'status_empresa', empresa_id: e.id, status: 'enriquecido' });
-          const r = await post({ acao: 'inscrever', empresa_ids: [e.id] });
-          if (r.falhas?.length) throw new Error(r.falhas[0].erro);
-          toast(`${nomeCurto(e.nome)} inscrita na cadência.`);
+          // Toque 1 ainda na fila: o contato foi feito por fora, então dá o toque como feito e segue a cadência.
+          if (!(await confirmar({ titulo: 'Já fez o primeiro contato?', mensagem: `O toque 1 de ${nomeCurto(e.nome)} é dado como feito (o rascunho dele é descartado) e a cadência segue para o toque 2.`, confirmar: 'Sim, já contatei' }))) return;
+          await post({ acao: 'pular', inscricao_id: i.id, feito_por_fora: true });
+          toast(`${nomeCurto(e.nome)} em Aguardando resposta.`);
         } else {
           await post({ acao: 'status_empresa', empresa_id: e.id, status: 'em_cadencia' });
           toast(`${nomeCurto(e.nome)} em Aguardando resposta${i?.status === 'pausada' ? ' (cadência retomada)' : ''}.`);
@@ -311,34 +318,27 @@ export async function render(view, params) {
       } else if (destino === 'atendimento') {
         await post({ acao: 'status_empresa', empresa_id: e.id, status: 'interessado' });
         toast(`${nomeCurto(e.nome)} em atendimento. A cadência automática foi pausada.`);
-      } else if (destino === 'fechado') {
-        const r = await escolherFechamento(e);
-        if (!r) return;
-        await post({ acao: 'status_empresa', empresa_id: e.id, status: r.status, motivo: r.motivo || undefined });
-        toast(r.status === 'ganho' ? `${nomeCurto(e.nome)} virou cliente!` : `${nomeCurto(e.nome)} marcada como perdida.`);
+      } else if (destino === 'ganho') {
+        await post({ acao: 'status_empresa', empresa_id: e.id, status: 'ganho' });
+        toast(`${nomeCurto(e.nome)} virou cliente!`);
+      } else if (destino === 'perdido') {
+        const motivo = await pedirMotivoPerda(e);
+        if (motivo === null) return;
+        await post({ acao: 'status_empresa', empresa_id: e.id, status: 'perdido', motivo: motivo || undefined });
+        toast(`${nomeCurto(e.nome)} marcada como perdida.`);
       }
       await carregar();
     } catch (er) { toastErro(er); }
   }
 
-  function escolherFechamento(e) {
+  // Resolve com o motivo (pode ser vazio) ou null se cancelar.
+  function pedirMotivoPerda(e) {
     return new Promise((resolve) => {
-      const md = abrirModal({ titulo: `Fechar · ${nomeCurto(e.nome)}`, tamanho: 's',
-        corpo: html`<form novalidate style="display:grid;gap:12px">
-          <div class="segmentado" role="radiogroup" aria-label="Resultado">
-            <button type="button" data-res="ganho" aria-pressed="true">Virou cliente</button>
-            <button type="button" data-res="perdido" aria-pressed="false">Perdida</button></div>
-          <label class="campo" data-motivo hidden><span>Motivo (opcional)</span><input name="motivo" maxlength="300" placeholder="Ex.: já tem sistema, sem orçamento agora"></label>
-        </form>`,
-        rodape: html`<button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-primario" data-ok>Confirmar</button>`,
-        aoFechar: (v) => resolve(v) });
-      let res = 'ganho';
-      md.el.querySelectorAll('[data-res]').forEach((b) => b.addEventListener('click', () => {
-        res = b.dataset.res;
-        md.el.querySelectorAll('[data-res]').forEach((x) => x.setAttribute('aria-pressed', x === b));
-        md.el.querySelector('[data-motivo]').hidden = res !== 'perdido';
-      }));
-      md.el.querySelector('[data-ok]').addEventListener('click', () => md.fechar({ status: res, motivo: res === 'perdido' ? md.el.querySelector('[name=motivo]').value.trim() : '' }));
+      const md = abrirModal({ titulo: `Perdida · ${nomeCurto(e.nome)}`, tamanho: 's',
+        corpo: html`<label class="campo"><span>Motivo (opcional)</span><input name="motivo" maxlength="300" placeholder="Ex.: já tem sistema, sem orçamento agora"></label>`,
+        rodape: html`<button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-primario" data-ok>Marcar como perdida</button>`,
+        aoFechar: (v) => resolve(v === undefined ? null : v) });
+      md.el.querySelector('[data-ok]').addEventListener('click', () => md.fechar(md.el.querySelector('[name=motivo]').value.trim()));
     });
   }
 
@@ -428,7 +428,7 @@ export async function render(view, params) {
       corpo: html`<form class="grade-2" novalidate>
         <label class="campo"><span>Canal</span><select name="canal">${['whatsapp', 'instagram', 'telefone', 'site'].map((c) => html`<option ${t.canal === c ? raw('selected') : ''}>${c}</option>`)}</select></label>
         <span></span>
-        <label class="campo"><span>Quando você mandou a mensagem</span><input type="datetime-local" name="enviado_em" value="${local(t.enviado_em)}" required></label>
+        <label class="campo"><span>Quando você mandou a mensagem</span><input type="datetime-local" name="enviado_em" value="${local(t.enviado_em || (t.id ? '' : new Date().toISOString()))}" required></label>
         <label class="campo"><span>Quando responderam (vazio = não responderam)</span><input type="datetime-local" name="primeira_resposta_em" value="${local(t.primeira_resposta_em)}"></label>
         <label class="campo"><span>Passaram o preço?</span>${tri('passou_preco', t.passou_preco)}</label>
         <span></span>
@@ -600,6 +600,8 @@ export async function render(view, params) {
     if (alvo.closest('[data-descartadas]')) { mostrarDescartadas = alvo.closest('[data-descartadas]').checked; return desenharTabela(); }
     const mv = alvo.closest('[data-mover-clinica]');
     if (mv) { ev.stopPropagation(); return menuMoverClinica(mv, mv.closest('.sdr-card').dataset.empresa); }
+    const ocCard = alvo.closest('.sdr-card [data-oculto]');
+    if (ocCard) return modalOculto(ocCard.dataset.oculto, ocCard.dataset.teste);
     const cartao = alvo.closest('.sdr-card');
     if (cartao) return modalEmpresa(cartao.dataset.empresa);
     if (alvo.closest('[data-todas]')) {
