@@ -37,6 +37,9 @@ function colunaDe(e) {
 }
 // "26/09 09h40" no fuso de Brasília
 const curta = (ts) => { if (!ts) return ''; const f = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date(ts)); const g = (t) => f.find((x) => x.type === t)?.value; return `${g('day')}/${g('month')} ${g('hour')}h${g('minute')}`; };
+// Mesma regra do servidor (api/_sdr.js → tipoOferta)
+const SITE_RUIM = /(sem site|site (ultrapassado|antigo|desatualizado|velho|ruim|fora do ar))/i;
+const ofertaSiteChat = (e) => !String(e.site || '').trim() || SITE_RUIM.test(`${e.notas || ''} ${e.dor_observada || ''}`);
 const lerVisao = () => { try { return localStorage.getItem('sdr-visao') === 'lista' ? 'lista' : 'quadro'; } catch { return 'quadro'; } };
 const gravarVisao = (v) => { try { localStorage.setItem('sdr-visao', v); } catch { /* sem armazenamento: fica só nesta sessão */ } };
 
@@ -282,6 +285,7 @@ export async function render(view, params) {
       ${o ? html`<div class="card-linha">${raw(icon('phone', 13))}${o.canal === 'instagram' ? 'Instagram' : 'WhatsApp'} ${curta(o.enviado_em)} · ${o.primeira_resposta_em ? `resp. em ${o.minutos_ate_resposta} min` : html`<span class="badge badge-erro">sem resposta</span>`}</div>`
         : colunaDe(e) === 'diagnostico' ? html`<div class="card-linha">${raw(icon('phone', 13))}WhatsApp ainda não registrado</div>` : ''}
       ${colunaDe(e) === 'diagnostico' ? html`<button class="btn btn-secundario btn-p" data-oculto="${e.id}" data-teste="${o?.id || ''}">${o ? 'Editar teste' : 'Registrar WhatsApp'}</button>` : ''}
+      ${['diagnostico', 'contactar'].includes(colunaDe(e)) ? html`<div class="card-linha">${raw(icon('sparkles', 13))}${ofertaSiteChat(e) ? `Oferta: site + chat · 10x R$ 399,90${e.site ? '' : ' (sem site)'}` : 'Oferta: chat com IA · 10x R$ 208,00'}</div>` : ''}
       <div class="card-rodape"><span class="prio-sdr prio-${e.prioridade}">${e.prioridade}</span>${badge(STATUS, e.status)}</div>
     </article>`;
   }
@@ -469,7 +473,7 @@ export async function render(view, params) {
           <label class="campo"><span>Prioridade</span><select name="prioridade">${['A', 'B', 'C'].map((p) => html`<option ${e.prioridade === p ? raw('selected') : ''}>${p}</option>`)}</select></label>
           <label class="campo col-toda"><span>Gancho (frase de abertura que a IA deve usar)</span><input name="gancho" value="${e.gancho || ''}" placeholder="Ex.: Mandei mensagem no WhatsApp de vocês na terça e só tive resposta no dia seguinte."></label>
           <label class="campo col-toda"><span>Fato verificável</span><input name="fato" value="${e.fato || ''}"></label>
-          <label class="campo col-toda"><span>Notas</span><textarea name="notas" rows="3">${e.notas || ''}</textarea></label>
+          <label class="campo col-toda"><span>Notas <span class="sub" style="font-weight:400">· escreva "site ultrapassado" para oferecer site + chat (10x R$ 399,90); sem site cadastrado a oferta já é essa</span></span><textarea name="notas" rows="3">${e.notas || ''}</textarea></label>
         </form>
         ${(e.procedimentos || []).length ? html`<p class="sdr-procs">Procedimentos: ${e.procedimentos.join(', ')}</p>` : ''}
         <div class="acoes" style="margin-top:12px">

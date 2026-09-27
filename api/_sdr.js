@@ -90,31 +90,43 @@ async function ia(mensagens, { json = true, max = 700, temperatura = 0.6 } = {})
 const ASSINATURA = 'Miguel\nMeu Sistema Customizado · Balneário Camboriú\nwww.meusistemacustomizado.com';
 const RODAPE_OPTOUT = 'Se não quiser mais receber, é só responder "sair".';
 
-// Oferta padrão da prospecção. Tem prioridade sobre os modelos de mensagem da cadência (no banco).
+// Ofertas da prospecção. Têm prioridade sobre os modelos de mensagem da cadência (no banco).
+// Sem site (ou com "site ultrapassado"/"antigo"/"desatualizado" nas notas) → pacote site + chat; senão → só o chat.
 const SITE = 'www.meusistemacustomizado.com';
-const OFERTA = `OFERTA PADRÃO (tem prioridade sobre o MODELO do passo):
-- O que é: implantação de um chat com IA que atende 24 horas por dia, com respostas naturais que parecem atendimento humano; tira dúvidas sobre procedimentos, passa informações e encaminha o paciente para agendar.
-- Valor: 10x de R$ 208,00. Cite o valor assim, exatamente, uma vez por mensagem, sem "a partir de" e sem outros preços ou descontos.
-- Site: ${SITE}. Inclua o site no corpo da mensagem, uma vez, escrito exatamente assim (sem https://).
-- NÃO ofereça vídeo, demonstração gravada nem "link do vídeo". Se o MODELO falar em vídeo, troque pela oferta acima.
+const SITE_RUIM = /(sem site|site (ultrapassado|antigo|desatualizado|velho|ruim|fora do ar))/i;
+function tipoOferta(f) {
+  return !String(f.site || '').trim() || SITE_RUIM.test(`${f.notas || ''} ${f.dor_observada || ''}`) ? 'site_chat' : 'chat';
+}
+function textoOferta(f) {
+  const semSite = !String(f.site || '').trim();
+  const oferta = tipoOferta(f) === 'site_chat'
+    ? `- O que é: site novo e moderno para a clínica (bonito no celular) com um chat com IA que atende 24 horas por dia, com respostas naturais que parecem atendimento humano, mais 12 meses de ajustes nas respostas da IA.
+- Por que para esta clínica: ${semSite ? 'ela não tem site' : 'o site atual está ultrapassado'}. Cite isso com tato, sem criticar ("vi que vocês ainda não têm site" / "vi que o site de vocês é mais antigo").
+- Valor: 10x de R$ 399,90. Cite exatamente assim, uma vez, sem "a partir de" e sem outros preços ou descontos.`
+    : `- O que é: implantação de um chat com IA no site da clínica, que atende 24 horas por dia, com respostas naturais que parecem atendimento humano; tira dúvidas sobre procedimentos, passa informações e encaminha o paciente para agendar.
+- Valor: 10x de R$ 208,00. Cite exatamente assim, uma vez, sem "a partir de" e sem outros preços ou descontos.`;
+  return `OFERTA PARA ESTA CLÍNICA (tem prioridade sobre o MODELO do passo):
+${oferta}
+- Site: ${SITE}. Inclua no corpo, uma vez, escrito exatamente assim (sem https://).
+- NÃO ofereça vídeo, demonstração gravada nem "link do vídeo". Se o MODELO falar em vídeo, troque pela oferta.
 - Não prometa integração com WhatsApp ou Instagram da clínica; fale em "chat com IA" / "atendimento com IA 24h".
 - Feche com uma pergunta curta e fácil de responder (ex.: "Faz sentido eu te mostrar como ficaria para a {{nome}}?").`;
+}
 
 const SISTEMA_RASCUNHO = `Você escreve mensagens de prospecção B2B do Miguel, dono da Meu Sistema Customizado (Balneário Camboriú/SC), empresa que cria chatbot com IA, CRM e automações para pequenas empresas.
 Destinatário: uma clínica de estética de Balneário Camboriú ou Itajaí.
 
-${OFERTA}
-
 Regras:
+- A OFERTA PARA ESTA CLÍNICA (na mensagem do usuário) manda: siga o produto, o valor e o site dela.
 - Português do Brasil, tom de vizinho de negócio: direto, educado, sem bajulação, sem emoji, sem exclamações em excesso.
-- Siga o MODELO do passo e a INSTRUÇÃO do passo (ideia e tamanho), sempre respeitando a OFERTA PADRÃO acima.
+- Siga o MODELO do passo e a INSTRUÇÃO do passo (ideia e tamanho), sempre respeitando a OFERTA PARA ESTA CLÍNICA.
 - Substitua {{nome}} pelo "Nome da clínica para usar no texto" dos dados, exatamente como está.
 - Comece a mensagem com o "Cumprimento de abertura" dos dados (troca o "Oi, tudo bem?" do modelo).
 - {{gancho}}: 1 frase citando algo REAL dos dados (fato, procedimento, cidade, resultado do cliente oculto). Nunca invente números, prêmios, anos ou elogios que não estejam nos dados.
 - Se houver resultado de cliente oculto, ele é o melhor gancho, mas cite com tato ("mandei uma mensagem pelo WhatsApp de vocês na terça, às 14h10, e..."), sem acusar. Use o dia e a hora que vierem nos dados, de forma natural; nunca invente datas.
 - Não cite avaliações negativas do Google. Não fale de concorrentes pelo nome.
 - Nenhum link além do site da oferta. Nada de "[link do vídeo]" ou outros marcadores.
-- O único preço permitido é o da OFERTA PADRÃO.
+- O único preço permitido é o da OFERTA PARA ESTA CLÍNICA.
 - Nunca diga que mandou e-mail quando os dados disserem que a clínica não tem e-mail: nesse caso os contatos anteriores foram por WhatsApp/Instagram, então trate como continuação da conversa ("te chamei aqui na segunda...") ou como primeiro contato, conforme o toque.
 - Não inclua assinatura nem rodapé: eles são adicionados depois.
 Responda em JSON: {"assunto": "...", "corpo": "..."} (assunto vazio quando o canal não for e-mail).`;
@@ -175,7 +187,7 @@ async function gerarTexto(f, { canalEntrega } = {}) {
         : 'Canal: roteiro de ligação para o Miguel. Tópicos curtos: abertura, 1 pergunta, gancho, pedido de 10 minutos.';
   const r = await ia([
     { role: 'system', content: SISTEMA_RASCUNHO },
-    { role: 'user', content: `${instrucaoCanal}\n\nMODELO:\nAssunto: ${f.assunto_modelo || '(sem assunto)'}\n${f.corpo_modelo || ''}\n\nINSTRUÇÃO DO PASSO:\n${f.instrucao_ia || '-'}\n\nDADOS DA CLÍNICA:\n${dadosClinica(f)}` }
+    { role: 'user', content: `${instrucaoCanal}\n\nMODELO:\nAssunto: ${f.assunto_modelo || '(sem assunto)'}\n${f.corpo_modelo || ''}\n\nINSTRUÇÃO DO PASSO:\n${f.instrucao_ia || '-'}\n\n${textoOferta(f)}\n\nDADOS DA CLÍNICA:\n${dadosClinica(f)}` }
   ], { max: 600 });
   let corpo = String(r.corpo || '').replace(/\n{3,}/g, '\n\n').trim();
   // Tira assinatura/rodapé que a IA possa ter copiado do modelo
@@ -486,7 +498,7 @@ async function enriquecer(empresaId) {
 
 module.exports = {
   db, rpc, enc, erro, ia, hojeSP, inicioHojeISO, limiteDia,
-  gerarTexto, gerarRascunhos, comDatasOculto, canalEntrega, dadosClinica, nomeTexto, cumprimento,
+  gerarTexto, gerarRascunhos, comDatasOculto, tipoOferta, canalEntrega, dadosClinica, nomeTexto, cumprimento,
   bloqueado, registrarOptOut, enviarMensagem, enviarAprovados, enviadosHoje, enviarAviso, smtp, remetente,
   lerRespostas, enriquecer, extrair, decodificarCfEmail, limparCorpo
 };
